@@ -1065,6 +1065,7 @@ const isEvening = () => { const h = new Date().getHours(); return h >= 22 || h <
 /* ---------- кухня: облачная функция с ИИ ---------- */
 const API_URL = 'https://functions.yandexcloud.net/d4e3dot5um3j8c50581a';
 const DEV = /[?&]dev(=|&|$)/.test(location.search);
+const AI_LIMIT = 30; // подборов с ИИ в день на бесплатном плане (на бете — щедро)
 const wait = ms => new Promise(r => setTimeout(r, ms));
 async function api(action, data, ms = 20000) {
   const ctl = new AbortController(), tm = setTimeout(() => ctl.abort(), ms);
@@ -1127,7 +1128,7 @@ const setLangAttr = () => { document.documentElement.lang = S.lang; };
 const detectLang = () => { const l = (navigator.language || 'ru').toLowerCase(); return /^(ru|uk|be|kk)/.test(l) ? 'ru' : 'en'; };
 const S0 = () => ({
   v: 4, lang: detectLang(), onboarded: false, name: '', since: null,
-  aiOn: true, aiUsed: 0, aiMax: 5, aiDay: dayKey(), photosUsed: 0, photosMax: 2,
+  aiOn: true, aiUsed: 0, aiMax: AI_LIMIT, aiDay: dayKey(), photosUsed: 0, photosMax: 2,
   plus: { active: false, plan: 'year', trialEnd: null, method: null, cancelled: false },
   auth: null, saved: [], savedColls: [], history: [], cooked: 0, unfinished: null,
   products: [], photoAt: null, diet: 'all', noEat: [], energy: null,
@@ -1139,6 +1140,7 @@ const S0 = () => ({
 let S = S0();
 try { const raw = localStorage.getItem('supa-proto'); if (raw) { const o = JSON.parse(raw); if (o && o.v === 4) S = Object.assign(S0(), o); } } catch (e) {}
 if (S.aiDay !== dayKey()) { S.aiUsed = 0; S.aiDay = dayKey(); }
+S.aiMax = AI_LIMIT;
 let saveT = 0;
 function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem('supa-proto', JSON.stringify(S)); } catch (e) {} }, 200); }
 const savedCount = () => S.saved.length + S.savedColls.length;
@@ -1876,7 +1878,7 @@ function plansHTML() {
 }
 const finePrint = () => t(`Сегодня 0 ₽. С ${fmtD(trialEnd())} — ${money(priceOf(S.plus.plan))} ${periodW(S.plus.plan)}. Отменить — в профиле в один клик, напомним за 2 дня до списания. Бесплатная версия остаётся: подбор по базе, рецепты, готовка, «Моё».`,
   `Free today. From ${fmtD(trialEnd())}: ${money(priceOf(S.plus.plan))} ${periodW(S.plus.plan)}. Cancel in your profile in one click; we’ll remind you 2 days before you’re charged. The free version stays: recipe search, recipes, cooking, Saved.`);
-const FEATS = () => [[t('Подборы с ИИ без лимита', 'Unlimited AI picks'), t('Бесплатно — 5 в день', 'Free: 5 a day')], [t('Фото холодильника без ограничений', 'Unlimited fridge photos'), t('Бесплатно — 2 в неделю', 'Free: 2 a week')], [t('Меню на неделю и список покупок', 'Weekly menu and shopping list'), t('Из того, что есть дома', 'Built from what you have')], [t('Вопросы по ходу готовки', 'Questions while cooking'), t('Ответ сразу, в чате', 'Instant answers in chat')], [t('Личная лента подборок', 'A personal feed'), t('По вкусам и оценкам', 'From your tastes and ratings')], [t('Бесплатная версия остаётся', 'The free version stays'), t('Подбор по базе, рецепты, готовка, «Моё»', 'Recipe search, recipes, cooking, Saved')]];
+const FEATS = () => [[t('Подборы с ИИ без лимита', 'Unlimited AI picks'), t('Бесплатно — ' + AI_LIMIT + ' в день', 'Free: ' + AI_LIMIT + ' a day')], [t('Фото холодильника без ограничений', 'Unlimited fridge photos'), t('Бесплатно — 2 в неделю', 'Free: 2 a week')], [t('Меню на неделю и список покупок', 'Weekly menu and shopping list'), t('Из того, что есть дома', 'Built from what you have')], [t('Вопросы по ходу готовки', 'Questions while cooking'), t('Ответ сразу, в чате', 'Instant answers in chat')], [t('Личная лента подборок', 'A personal feed'), t('По вкусам и оценкам', 'From your tastes and ratings')], [t('Бесплатная версия остаётся', 'The free version stays'), t('Подбор по базе, рецепты, готовка, «Моё»', 'Recipe search, recipes, cooking, Saved')]];
 VIEWS.plus = () => {
   const desk = isDesk(), back = [t('Назад', 'Back'), RT.returnTo || 'chat', 'go', RT.returnP];
   const hero = `<div class="plushero" data-s><span class="pot">${pot({ bg: false })}</span><div class="stack" style="gap:8px"><h1 class="h-disp">${t('Котелок+', 'Kotelok+')}</h1><p>${t('Ужин без лимитов: подбираю сколько угодно, вижу холодильник и помню, что вам зашло.', 'Dinner without limits: as many picks as you like, I see your fridge and remember what you loved.')}</p></div></div>`;
@@ -2120,12 +2122,13 @@ function askText(q) {
   addMsg({ t: 'q', text: cap1(q) });
   const pq = parseQuery(q); S.query = pq; S.lim = defaultLim(pq); S.removed = [];
   if (!S.aiOn) return thinking(baseReply, 700);
-  if (!aiAllowed()) return thinking(limitReply, 700);
+  const limited = !aiAllowed();
   if (S.failAI) { S.failAI = false; save(); return thinking(() => addMsg({ t: 'bot', text: both(() => t('Котелок не ответил — сервис думал слишком долго. Подбор не потрачен.', 'Kotelok didn’t answer, the service took too long. This pick wasn’t counted.')), buttons: [{ l: ['Повторить', 'Retry'], a: 'retryai', cls: 's dark', p: { q } }, { l: ['Искать по базе', 'Search recipes'], a: 'basesearch' }] }), 2000); }
   if (S.emptyNext) { S.emptyNext = false; save(); return thinking(() => noneMsg(q)); }
-  runAI(q, pq);
+  runAI(q, pq, limited);
 }
-async function runAI(q, pq) {
+async function runAI(q, pq, limited) {
+  if (limited === undefined) limited = !aiAllowed();
   addMsg({ t: 'typing' });
   let out = null;
   try { out = await aiPick(q, pq, true); } catch (e) { out = null; }
@@ -2139,6 +2142,7 @@ async function runAI(q, pq) {
     const c = esc(out.note);
     return addMsg({ t: 'bot', ai: 1, text: [c, c], buttons: ENERGY.map(e => ({ l: e.t, a: 'energy', p: { k: e.k } })) });
   }
+  if (limited) return limitReply();
   if (!out.ids.length) return noneMsg(q);
   useAI();
   pq.ai = out.ids;
