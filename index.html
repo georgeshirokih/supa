@@ -1075,22 +1075,24 @@ async function api(action, data, ms = 20000) {
     return j;
   } finally { clearTimeout(tm); }
 }
-function suggestPayload(text, pool) {
+function suggestPayload(text, pool, chat) {
   const byR = k => S.history.filter(h => h.r === k && RECIPES[h.id]).map(h => rTitle(RECIPES[h.id]));
   return {
-    text, energy: S.query && S.query.type === 'energy' ? S.query.k : null, lim: S.lim,
+    text, chat: !!chat, recent: S.chat.filter(m => m.t === 'q' && !m.who).slice(-4, -1).map(m => tt(m.text)),
+    energy: S.query && S.query.type === 'energy' ? S.query.k : null, lim: S.lim,
     products: S.products.map(ingName), liked: byR('yum'), disliked: byR('no'),
     candidates: pool.slice(0, 30).map(id => { const r = RECIPES[id]; return { id, t: rTitle(r), time: r.time, ing: r.ing.map(x => ingName(x[0])), miss: missing(r).length }; }),
   };
 }
-async function aiPick(text, q) {
+async function aiPick(text, q, chat) {
   const pool = rankList(q, S.lim);
-  if (!pool.length) return { ids: [], note: '' };
-  const [res] = await Promise.all([api('suggest', suggestPayload(text, pool)), wait(700)]);
+  if (!pool.length && !chat) return { mode: 'pick', ids: [], note: '' };
+  const [res] = await Promise.all([api('suggest', suggestPayload(text, pool, chat)), wait(700)]);
+  if (res.mode === 'answer' && res.answer) return { mode: 'answer', answer: res.answer };
+  if (res.mode === 'clarify' && res.note) return { mode: 'clarify', note: res.note };
   const ids = (res.ids || []).filter(id => RECIPES[id] && pool.includes(id));
-  if (!ids.length) return null;
-  for (const id of pool) { if (ids.length >= 5) break; if (!ids.includes(id)) ids.push(id); }
-  return { ids, note: res.note || '' };
+  if (ids.length) for (const id of pool) { if (ids.length >= 5) break; if (!ids.includes(id)) ids.push(id); }
+  return { mode: 'pick', ids, note: res.note || '' };
 }
 
 /* ---------- i18n ---------- */
@@ -2120,15 +2122,24 @@ function askText(q) {
   if (!S.aiOn) return thinking(baseReply, 700);
   if (!aiAllowed()) return thinking(limitReply, 700);
   if (S.failAI) { S.failAI = false; save(); return thinking(() => addMsg({ t: 'bot', text: both(() => t('Котелок не ответил — сервис думал слишком долго. Подбор не потрачен.', 'Kotelok didn’t answer, the service took too long. This pick wasn’t counted.')), buttons: [{ l: ['Повторить', 'Retry'], a: 'retryai', cls: 's dark', p: { q } }, { l: ['Искать по базе', 'Search recipes'], a: 'basesearch' }] }), 2000); }
-  if (S.emptyNext || !topFive(pq, S.lim).length) { S.emptyNext = false; save(); return thinking(() => noneMsg(q)); }
+  if (S.emptyNext) { S.emptyNext = false; save(); return thinking(() => noneMsg(q)); }
   runAI(q, pq);
 }
 async function runAI(q, pq) {
   addMsg({ t: 'typing' });
   let out = null;
-  try { out = await aiPick(q, pq); } catch (e) { out = null; }
+  try { out = await aiPick(q, pq, true); } catch (e) { out = null; }
   dropMsg('typing');
-  if (!out || !out.ids.length) return aiFailMsg(q);
+  if (!out) return aiFailMsg(q);
+  if (out.mode === 'answer') {
+    const a = esc(out.answer);
+    return addMsg({ t: 'bot', ai: 1, text: [a, a], foot: ['Ответ ИИ · может ошибаться', 'AI answer · may be wrong'] });
+  }
+  if (out.mode === 'clarify') {
+    const c = esc(out.note);
+    return addMsg({ t: 'bot', ai: 1, text: [c, c], buttons: ENERGY.map(e => ({ l: e.t, a: 'energy', p: { k: e.k } })) });
+  }
+  if (!out.ids.length) return noneMsg(q);
   useAI();
   pq.ai = out.ids;
   const def = both(() => t(`Под «${esc(q)}» нашёл ${nw(Math.min(5, out.ids.length), 'dinner')}.`, `Found ${nw(Math.min(5, out.ids.length), 'dinner')} for “${esc(q)}”.`));
