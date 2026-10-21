@@ -1087,24 +1087,104 @@ async function api(action, data, ms = 20000) {
     return j;
   } finally { clearTimeout(tm); }
 }
-function suggestPayload(text, pool, chat) {
+function suggestPayload(text, chat) {
   const byR = k => S.history.filter(h => h.r === k && RECIPES[h.id]).map(h => rTitle(RECIPES[h.id]));
   return {
     text, chat: !!chat, recent: S.chat.filter(m => m.t === 'q' && !m.who).slice(-4, -1).map(m => tt(m.text)),
-    energy: S.query && S.query.type === 'energy' ? S.query.k : null, lim: S.lim,
-    products: S.products.map(ingName), liked: byR('yum'), disliked: byR('no'),
-    candidates: pool.slice(0, 30).map(id => { const r = RECIPES[id]; return { id, t: rTitle(r), time: r.time, ing: r.ing.map(x => ingName(x[0])), miss: missing(r).length }; }),
+    energy: S.query && S.query.type === 'energy' ? S.query.k : (S.energy || null), lim: S.lim,
+    products: S.products.map(ingName), avoid: noEatSummary(), liked: byR('yum').slice(-15),
   };
 }
-async function aiPick(text, q, chat) {
-  const pool = rankList(q, S.lim);
-  if (!pool.length && !chat) return { mode: 'pick', ids: [], note: '' };
-  const [res] = await Promise.all([api('suggest', suggestPayload(text, pool, chat)), wait(700)]);
+
+/* продукт по названию: ключ из словаря, если совпадает надёжно, иначе свой «x:» */
+const KIND_HINTS = [
+  ['fish', /(рыб|лосос|сёмг|семг|форел|треск|тунец|тунц|кревет|кальмар|мид|икр|минта|скумбр|селёд|сельд|fish|salmon|tuna|shrimp|prawn|squid|cod)/],
+  ['meat', /(мяс|свин|говя|телят|баран|ягн|кур|цыпл|индей|утк|колбас|сосис|сардел|ветчин|бекон|фарш|печен|грудин|chicken|beef|pork|lamb|turkey|bacon|ham|sausage|mince)/],
+  ['egg', /(яйц|egg)/],
+  ['dairy', /(молок|сыр|сливк|сметан|творог|кефир|йогурт|ряженк|сливочн|моцарел|пармез|брынз|milk|cheese|cream|yogh?urt|butter)/],
+];
+const GLUTEN_HINT = /(мук|хлеб|батон|багет|булоч|булк|пицц|пельм|вареник|макарон|спагет|лапш|паст[аы]|булгур|кускус|панир|сухар|тест|лаваш|тортил|flour|bread|pasta|noodle|couscous|bulgur|tortilla)/;
+function ingKeyFor(name, register) {
+  const n = String(name || '').trim().toLowerCase(); if (!n) return null;
+  let best = null, bl = 0;
+  for (const k in ING) {
+    if (k.startsWith('x:')) continue;
+    const g = ING[k];
+    if (g.ru.toLowerCase() === n || g.en.toLowerCase() === n) return k;
+    for (const st of g.s || []) { const x = st.trim(); if (x.length >= 3 && (n.startsWith(x) || (x.length >= 5 && n.includes(x))) && x.length > bl) { best = k; bl = x.length; } }
+  }
+  if (best && !/(соус|кетчуп|майонез|бульон|sauce|stock)/.test(n) || best === 'soy' || best === 'tomatopaste') return best;
+  const key = 'x:' + n;
+  if (register !== false && !ING[key]) {
+    const kind = (KIND_HINTS.find(([, re]) => re.test(n)) || [])[0];
+    ING[key] = { ru: cap1(n), en: cap1(n), c: kind === 'meat' ? '#C98A6E' : kind === 'fish' ? '#F2B49C' : kind === 'dairy' ? '#F6EED8' : '#CFC6B4', g: 'other', s: [] };
+    if (kind) ING[key].kind = kind;
+    if (GLUTEN_HINT.test(n)) ING[key].gl = 1;
+  }
+  return key;
+}
+function autoCv(r) {
+  const cols = r.ing.filter(([k, , , opt]) => !opt && ING[k] && !ING[k].p).map(([k]) => ING[k].c).filter(c => c && c.toUpperCase() !== '#FFFFFF');
+  const pans = tt(r.pans || ['', '']).toLowerCase(), title = rTitle(r).toLowerCase();
+  const shape = r.soup || /суп|борщ|щи|soup|кастрюл|pot/.test(pans + ' ' + title) ? 'bowl' : /сковор|вок|pan|wok/.test(pans) ? 'pan' : 'plate';
+  const bgs = ['#F6E9B8', '#D5E3F8', '#F9D5E5', '#D6E8D4', '#F8DCCB', '#EDE7DA'];
+  const bg = bgs[Math.abs(hashStr(r.id)) % bgs.length];
+  const base = shape === 'plate' ? '#FBFAF6' : (cols[0] || '#E8B98A');
+  const spec = [['chunks', (cols.length ? cols : ['#E8B98A']).slice(0, 4), shape === 'plate' ? 9 : 12, 16, 30]];
+  if (shape === 'plate' && cols[0]) spec.unshift(['mound', cols[0], 96, 0, 0]);
+  return [shape, base, bg, spec];
+}
+function registerAI(r) {
+  (r.ing || []).forEach(([k]) => { if (k.startsWith('x:') && !ING[k]) ingKeyFor(k.slice(2)); });
+  RECIPES[r.id] = r;
+}
+function buildAIRecipe(d) {
+  const id = 'ai-' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+  const names = {}, ing = [];
+  for (const [name, amount, opt] of d.ing) {
+    const k = ingKeyFor(name); if (!k || names[k]) continue;
+    names[k] = name; ing.push(opt ? [k, amount, amount, 1] : [k, amount, amount]);
+  }
+  const r = { id, gen: 1, t: [d.title, d.title], time: d.time, serves: d.serves, pans: [d.pans || '—', d.pans || '—'], ing, names, steps: [], tip: [d.desc || '', d.desc || ''], desc: d.desc || '', at: Date.now() };
+  registerAI(r);
+  return r;
+}
+function saveAI(list) {
+  S.aiRecipes = S.aiRecipes || {};
+  list.forEach(r => { S.aiRecipes[r.id] = r; });
+  const keep = new Set([].concat(S.saved || [], (S.history || []).map(h => h.id)));
+  const ids = Object.keys(S.aiRecipes).sort((x, y) => (S.aiRecipes[y].at || 0) - (S.aiRecipes[x].at || 0));
+  ids.slice(80).forEach(id => { if (!keep.has(id)) delete S.aiRecipes[id]; });
+  save();
+}
+async function aiIdeas(text, chat) {
+  const [res] = await Promise.all([api('suggest', suggestPayload(text, chat), 32000), wait(600)]);
   if (res.mode === 'answer' && res.answer) return { mode: 'answer', answer: res.answer };
   if (res.mode === 'clarify' && res.note) return { mode: 'clarify', note: res.note };
-  const ids = (res.ids || []).filter(id => RECIPES[id] && pool.includes(id));
-  if (ids.length) for (const id of pool) { if (ids.length >= 5) break; if (!ids.includes(id)) ids.push(id); }
-  return { mode: 'pick', ids, note: res.note || '' };
+  const list = (res.dishes || []).map(buildAIRecipe).filter(r => recipeOK(r)).slice(0, 5);
+  saveAI(list);
+  return { mode: 'ideas', ids: list.map(r => r.id), note: res.note || '' };
+}
+async function loadAIRecipe(id) {
+  const r = RECIPES[id]; if (!r || !r.gen) return;
+  RT.aiLoad = RT.aiLoad || {}; RT.aiLoad[id] = 'loading';
+  try {
+    const res = await api('recipe', { title: rTitle(r), time: r.time, serves: r.serves, ing: r.ing.map(([k, a]) => [(r.names && r.names[k]) || ingName(k), a]), avoid: noEatSummary() }, 34000);
+    const byName = {};
+    r.ing.forEach(([k]) => { byName[String((r.names && r.names[k]) || ingName(k)).toLowerCase()] = k; });
+    const keyOf = u => { const n = String(u).toLowerCase().trim(); if (byName[n]) return byName[n]; const k = ingKeyFor(n, false); return r.ing.some(x => x[0] === k) ? k : null; };
+    r.steps = res.steps.map(st => {
+      const o = { t: [st.text, st.text], i: [...new Set((st.uses || []).map(keyOf).filter(Boolean))] };
+      if (st.timer) o.tm = [Math.round(st.timer.min * 60), [st.timer.label, st.timer.label], [st.timer.done || st.timer.label, st.timer.done || st.timer.label], [st.timer.after || '', st.timer.after || '']];
+      return o;
+    });
+    if (res.time) r.time = res.time;
+    if (res.pans) r.pans = [res.pans, res.pans];
+    if (res.tip) r.tip = [res.tip, res.tip];
+    saveAI([r]);
+    RT.aiLoad[id] = 'done';
+  } catch (e) { RT.aiLoad[id] = 'error'; }
+  if (R.route === 'recipe' && R.p.id === id) render(false);
 }
 
 /* ---------- i18n ---------- */
@@ -1152,6 +1232,7 @@ let S = S0();
 try { const raw = localStorage.getItem('supa-proto'); if (raw) { const o = JSON.parse(raw); if (o && o.v === 4) S = Object.assign(S0(), o); } } catch (e) {}
 if (S.aiDay !== dayKey()) { S.aiUsed = 0; S.aiDay = dayKey(); }
 S.aiMax = AI_LIMIT;
+S.aiRecipes = S.aiRecipes || {};
 let saveT = 0;
 function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem('supa-proto', JSON.stringify(S)); } catch (e) {} }, 200); }
 const savedCount = () => S.saved.length + S.savedColls.length;
@@ -1285,7 +1366,7 @@ function cover(r) {
   if (COVER[r.id]) return COVER[r.id];
   const W = 480, H = 400, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const x = cv.getContext('2d'); if (!x) return '';
-  const R = rng(hashStr(r.id)), [shape, baseH, bgH, spec] = r.cv || ['plate', ING[r.ing[0][0]] ? ING[r.ing[0][0]].c : '#F2C94C', '#EDE7DA', [['mound', '#F2C94C', 108, 0, 0]]];
+  const R = rng(hashStr(r.id)), [shape, baseH, bgH, spec] = r.cv || autoCv(r);
   const bg = hex(bgH), base = hex(baseH);
   const cx = W * 0.5 + (R() - 0.5) * 20, cy = H * 0.52, plateR = 176, foodR = shape === 'bowl' ? 134 : shape === 'pan' ? 150 : 126;
   const rimCol = shape === 'pan' ? [40, 38, 36] : shape === 'bowl' ? [250, 248, 242] : [255, 255, 252];
@@ -1633,6 +1714,7 @@ VIEWS.chat = () => {
 
 /* ---------- dinners ---------- */
 const curList = () => {
+  if (S.query && S.query.gen) return (S.query.ai || []).filter(id => RECIPES[id] && !(S.removed || []).includes(id)).slice(0, 5);
   const all = rankList(S.query, S.lim), ai = S.query && S.query.ai;
   if (!ai) return all.slice(0, 5);
   const top = ai.filter(id => all.includes(id));
@@ -1734,6 +1816,25 @@ VIEWS.cook = () => {
   const panel = `<div class="card" data-s><div class="mono" style="margin-bottom:8px">${t('Все шаги', 'All steps')}</div><div class="slist">${r.steps.map((s, i) => `<button class="${i < c.step ? 'done' : i === c.step ? 'cur' : ''}" data-a="cgo" data-i="${i}"><span class="n">${i < c.step ? '✓' : i + 1}</span><span>${tt(s.t)}</span></button>`).join('')}</div></div>
     <div class="card" data-s style="background:var(--mist2)"><p style="margin:0;font-size:15px">${t('Руки заняты? Пробел — пауза, → — дальше.', 'Hands busy? Space pauses, → goes next.')}</p><p class="note" style="margin-top:6px">${t('Экран не погаснет, пока вкладка открыта.', 'The screen stays on while this tab is open.')}</p></div>`;
   return { title: desk ? t('Готовка · ', 'Cooking · ') + esc(rTitle(r).toLowerCase()) : t('Готовка', 'Cooking'), back: [t('Рецепт', 'Recipe'), 'recipe', 'exitcook'], body, panel, dock: desk ? composer(t('Спроси по ходу: «чем заменить сметану?»', 'Ask as you go: “what can replace sour cream?”')) : '' };
+};
+
+const _recipeView = VIEWS.recipe;
+VIEWS.recipe = () => {
+  const r = RECIPES[R.p.id];
+  RT.aiLoad = RT.aiLoad || {};
+  if (r && r.gen && !r.steps.length && !RT.aiLoad[r.id]) loadAIRecipe(r.id);
+  const v = _recipeView();
+  if (!r || !r.gen) return v;
+  const st = RT.aiLoad[r.id];
+  const note = `<p class="note" data-s>${t('Рецепт придумал Котелок. Проверяй время и степень готовности, особенно у мяса и рыбы.', 'Kotelok wrote this recipe. Check cooking times and doneness, especially for meat and fish.')}</p>`;
+  const wait = !r.steps.length
+    ? (st === 'error'
+      ? `<div class="card stack" data-s><p style="margin:0">${t('Не получилось написать шаги. Проверь интернет и попробуй ещё раз.', 'Couldn’t write the steps. Check your connection and try again.')}</p><button class="btn sec" data-a="airetry" ${dp({ id: r.id })}>${t('Попробовать ещё раз', 'Try again')}</button></div>`
+      : `<div class="typing" data-s>${botAv()}<i></i><i></i><i></i><span>${t('Котелок пишет шаги рецепта…', 'Kotelok is writing the steps…')}</span></div>`)
+    : '';
+  const fix = h => h && h.replace('<ol class="steps" data-s></ol>', wait).replace(/data-a="startcook"/g, r.steps.length ? 'data-a="startcook"' : 'disabled data-a="noop"');
+  v.body = fix(v.body) + note; if (v.panel) v.panel = fix(v.panel);
+  return v;
 };
 
 /* ---------- feed ---------- */
@@ -2119,14 +2220,17 @@ async function runPick(sel) {
   const text = tt(ENERGY_Q[q.k] || ['', '']) + (sel.length ? (S.lang === 'en' ? '. At home: ' : '. Дома есть: ') + sel.map(ingName).join(', ') : '');
   addMsg({ t: 'typing' });
   let out = null;
-  try { out = await aiPick(text, q); } catch (err) { out = null; }
+  try { out = await aiIdeas(text, false); } catch (err) { out = null; }
   dropMsg('typing');
-  const list = out && out.ids.length ? out.ids.slice(0, 5) : topFive(q, S.lim);
+  if (out && out.ids && out.ids.length) {
+    q.ai = out.ids; q.gen = 1;
+    const def = both(() => t('Придумал ', 'Came up with ') + nw(out.ids.length, 'dinner') + t(' до ', ' under ') + S.lim + ' ' + t('минут.', 'minutes.'));
+    const txt = out.note ? esc(out.note) : null;
+    return addMsg({ t: 'bot', ai: 1, text: txt ? [txt, txt] : def, res: out.ids.slice(0, 5), q, lim: S.lim, foot: ['Придумал ИИ · проверяй время и температуру', 'AI-made · check times and temperatures'] });
+  }
+  const list = topFive(q, S.lim);
   if (!list.length) return noneMsg();
-  if (out && out.ids.length) q.ai = out.ids;
-  const def = both(() => e && e.k === 'high' ? t('Нашёл ', 'Found ') + nw(list.length, 'dinner') + t(' на вечер.', ' for the evening.') : t('Нашёл ', 'Found ') + nw(list.length, 'dinner') + t(' до ', ' under ') + S.lim + ' ' + t('минут.', 'minutes.'));
-  const txt = out && out.note ? esc(out.note) : null;
-  addMsg({ t: 'bot', ai: 1, text: txt ? [txt, txt] : def, res: list, q, lim: S.lim });
+  addMsg({ t: 'bot', text: both(() => t('Котелок задумался, поэтому подобрал по базе: ', 'Kotelok was slow, so here are picks from the recipe base: ') + nw(list.length, 'dinner') + '.'), res: list, q, lim: S.lim });
 }
 function askText(q) {
   if (needNet()) return;
@@ -2143,7 +2247,7 @@ async function runAI(q, pq, limited) {
   if (limited === undefined) limited = !aiAllowed();
   addMsg({ t: 'typing' });
   let out = null;
-  try { out = await aiPick(q, pq, true); } catch (e) { out = null; }
+  try { out = await aiIdeas(q, true); } catch (e) { out = null; }
   dropMsg('typing');
   if (!out) return aiFailMsg(q);
   if (out.mode === 'answer') {
@@ -2155,12 +2259,12 @@ async function runAI(q, pq, limited) {
     return addMsg({ t: 'bot', ai: 1, text: [c, c], buttons: ENERGY.map(e => ({ l: e.t, a: 'energy', p: { k: e.k } })) });
   }
   if (limited) return limitReply();
-  if (!out.ids.length) return noneMsg(q);
+  if (!out.ids.length) return aiFailMsg(q);
   useAI();
-  pq.ai = out.ids;
-  const def = both(() => t(`Под «${esc(q)}» нашёл ${nw(Math.min(5, out.ids.length), 'dinner')}.`, `Found ${nw(Math.min(5, out.ids.length), 'dinner')} for “${esc(q)}”.`));
+  pq.ai = out.ids; pq.gen = 1;
+  const def = both(() => t(`Придумал ${nw(out.ids.length, 'dinner')} под «${esc(q)}».`, `Came up with ${nw(out.ids.length, 'dinner')} for “${esc(q)}”.`));
   const txt = out.note ? esc(out.note) : null;
-  addMsg({ t: 'bot', ai: 1, text: txt ? [txt, txt] : def, res: out.ids.slice(0, 5), q: pq, lim: S.lim });
+  addMsg({ t: 'bot', ai: 1, text: txt ? [txt, txt] : def, res: out.ids.slice(0, 5), q: pq, lim: S.lim, foot: ['Придумал ИИ · проверяй время и температуру', 'AI-made · check times and temperatures'] });
 }
 function aiFailMsg(q) {
   addMsg({ t: 'bot', text: both(() => t('Котелок не ответил — сервис думал слишком долго. Подбор не потрачен.', 'Kotelok didn’t answer, the service took too long. This pick wasn’t counted.')), buttons: [{ l: ['Повторить', 'Retry'], a: 'retryai', cls: 's dark', p: { q } }, { l: ['Искать по базе', 'Search recipes'], a: 'basesearch' }] });
@@ -2499,7 +2603,7 @@ const A = {
     const fb = () => toast(t('Ссылка: ', 'Link: ') + 'supa.app/r/' + id, { act: t('Открыть', 'Open'), fn: open });
     try { navigator.clipboard.writeText(url).then(() => toast(t('Ссылка скопирована', 'Link copied'), { tone: 'g', act: t('Открыть', 'Open'), fn: open }), fb); } catch (e) { fb(); }
   },
-  startcook: el => { const id = P(el).id; if (needNet()) return; if (!isDesk() && !S.installAsked && !S.installDone) { S.installAsked = true; save(); installSheet(() => startCook(id)); } else startCook(id); },
+  startcook: el => { const id = P(el).id; if (needNet()) return; if (!RECIPES[id] || !RECIPES[id].steps.length) return toast(t('Котелок ещё пишет шаги — секунду', 'Kotelok is still writing the steps')); if (!isDesk() && !S.installAsked && !S.installDone) { S.installAsked = true; save(); installSheet(() => startCook(id)); } else startCook(id); },
   tstart: () => { const c = RT.cook, st = RECIPES[c.rid].steps[c.step]; if (st.tm) { timerStart(st.tm, c.rid, c.step); render(false); } },
   tpause: () => timerToggle(),
   tadd: el => timerAdd(+el.dataset.s2),
@@ -2570,6 +2674,8 @@ const A = {
   voice: () => voiceSheet(),
   voiceagain: el => { closeOv(el.closest('.ov'), true); setTimeout(voiceSheet, 280); },
   cookask: () => cookAskSheet(),
+  airetry: el => { const id = P(el).id; RT.aiLoad = RT.aiLoad || {}; RT.aiLoad[id] = null; render(false); },
+  noop: () => {},
   cqsend: el => { const ov = el.closest('.ov'), v = ((ov.querySelector('#cq') || {}).value || '').trim(); if (!v) return; closeOv(ov, true); setTimeout(() => cookQuestion(v), 220); },
   voicesend: el => { try { RT.rec && RT.rec.abort(); } catch (e) {} const p = RT.vPhrase; closeOv(el.closest('.ov'), true); if (p) setTimeout(() => askText(p), 200); },
   msgmenu: el => { const m = findMsg(el.dataset.mid); sheet(t('Ответ Котелка', 'Kotelok’s answer'), `<div data-body class="stack" style="gap:8px"><button class="opt" data-a="copymsg" data-mid="${m.id}" data-s><span class="lg" style="background:var(--sky)">⧉</span><span class="tx"><b>${t('Скопировать', 'Copy')}</b></span></button><button class="opt" data-a="report" data-s><span class="lg" style="background:var(--orange)">!</span><span class="tx"><b>${t('Пожаловаться на ответ', 'Report this answer')}</b><small>${t('Опасный совет, неправда, не то, что просил', 'Unsafe advice, untrue, not what I asked')}</small></span>›</button></div>`, { kind: 'msg' }); },
@@ -2765,8 +2871,8 @@ async function handlePhoto(f) {
   let res = null;
   try {
     const img = await shrinkImage(f);
-    const keys = Object.keys(ING).map(k => ({ k, name: ING[k].ru }));
-    [res] = await Promise.all([api('fridge', { image: img, keys }, 30000), wait(1500)]);
+    [res] = await Promise.all([api('fridge', { image: img }, 32000), wait(1500)]);
+    if (res && res.items) { const f = [], o = []; res.items.forEach(n => { const k = ingKeyFor(n, false); if (k && !k.startsWith('x:')) f.push(k); else o.push(n); }); res = { found: f, other: o }; }
   } catch (e) { res = null; }
   if (!(R.route === 'fridge' && R.p.stage === 'scan')) return;
   if (!res || !((res.found || []).length + (res.other || []).length)) {
@@ -2777,7 +2883,7 @@ async function handlePhoto(f) {
   if (!S.plus.active) S.photosUsed++;
   photoFound(res.found || [], res.other || []);
 }
-async function shrinkImage(f, max = 1024) {
+async function shrinkImage(f, max = 1280) {
   const url = URL.createObjectURL(f);
   try {
     const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = url; });
@@ -2785,12 +2891,13 @@ async function shrinkImage(f, max = 1024) {
     const c = document.createElement('canvas');
     c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
     c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-    return c.toDataURL('image/jpeg', 0.8);
+    return c.toDataURL('image/jpeg', 0.85);
   } finally { URL.revokeObjectURL(url); }
 }
 
 /* ================= INIT ================= */
 (function init() {
+  Object.values(S.aiRecipes || {}).forEach(r => { try { registerAI(r); } catch (e) {} });
   MID = S.chat.reduce((m, x) => Math.max(m, x.id || 0), 0);
   RT.lastMsgRendered = MID;
   setLangAttr();
