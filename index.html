@@ -18,6 +18,29 @@
 .wkrow .tl b{display:block;font-weight:500;font-size:15px;line-height:1.25}
 .wkrow .tl small{display:block;color:#6B6B69;font-size:13px;margin-top:2px}
 .wkhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.plhead{display:flex;flex-direction:column;gap:6px}
+.plnote{display:flex;gap:10px;align-items:flex-start;background:#fff;border-radius:20px;padding:12px 14px}
+.plnote span{flex:1}
+.plactions{display:flex;flex-wrap:wrap;gap:8px}
+.pldays{display:flex;flex-direction:column;gap:10px}
+.pday{display:grid;grid-template-columns:64px 1fr;gap:12px;align-items:stretch;background:#fff;border-radius:22px;padding:10px;position:relative}
+.pday.today{box-shadow:inset 0 0 0 2px #141414}
+.pday.past{opacity:.55}
+.pdate{display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:16px;background:#F6F5F1;padding:8px 4px;line-height:1}
+.pday.today .pdate{background:#F5D33B}
+.pdate b{font-weight:600;font-size:14px}
+.pdate .num{font-family:"Sofia Sans Extra Condensed","Arial Narrow",sans-serif;font-weight:800;font-size:34px;margin:4px 0 2px}
+.pdate small{font-family:"Geist Mono",ui-monospace,monospace;font-size:11px;text-transform:uppercase;color:#6B6B69}
+.pdish{display:grid;grid-template-columns:72px 1fr;gap:12px;align-items:center;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:0;border-radius:16px}
+.pdish:focus-visible{outline:2px solid #141414;outline-offset:2px}
+.pdish img{width:72px;height:72px;border-radius:14px;object-fit:cover;display:block}
+.pdish b{display:block;font-weight:600;font-size:16px;line-height:1.25}
+.pdish small{display:block;color:#6B6B69;font-size:13px;margin-top:4px}
+.pflag{display:inline-block;align-self:flex-start;margin:0 0 5px;font-family:"Geist Mono",ui-monospace,monospace;font-size:10px;letter-spacing:.06em;text-transform:uppercase;padding:3px 8px;border-radius:999px;background:#F6F5F1}
+.pflag.t{background:#141414;color:#fff}
+.pflag.ok{background:#D6EDD4;color:#1E5B24}
+.plarch{display:flex;flex-wrap:wrap;gap:8px}
+@media (min-width:1024px){.pldays{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 .shoplist{display:flex;flex-direction:column;gap:2px}
 .shoplist .it{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid #EEECE6}
 .shoplist .it .pd{width:10px;height:10px;border-radius:50%;flex:none}
@@ -1063,10 +1086,11 @@ const ENERGY = [
 const SECTIONS = [
   { k:'chat', t:['Чат','Chat'], s:() => t('с Котелком','with Kotelok'), c:'var(--lemon)' },
   { k:'feed', t:['Лента','Feed'], s:() => t('сезонные подборки','seasonal picks'), c:'var(--pink)', badge:['НОВОЕ','NEW'] },
+  { k:'plan', t:['Мой рацион','My meal plan'], s:() => planActive(S.plans && S.plans[0]) ? t('неделя · ', 'week · ') + planRange(S.plans[0]) : t('на неделю', 'for the week'), c:'#F5A623', badge:['НОВОЕ','NEW'] },
   { k:'mine', t:['Моё','Saved'], s:() => t('сохранённое · ','saved · ') + savedCount(), c:'var(--leaf)' },
   { k:'fridge', t:['Холодильник','Fridge'], s:() => S.products.length ? nw(S.products.length, 'product') : t('пусто','empty'), c:'var(--sky)' },
 ];
-const SEC_OF = { chat:'chat', dinners:'chat', recipe:'chat', cook:'chat', feed:'feed', coll:'feed', mine:'mine', fridge:'fridge', profile:'profile', plus:'profile', pay:'profile', done:'chat' };
+const SEC_OF = { chat:'chat', dinners:'chat', recipe:'chat', cook:'chat', feed:'feed', coll:'feed', mine:'mine', plan:'plan', fridge:'fridge', profile:'profile', plus:'profile', pay:'profile', done:'chat' };
 
 /* 5×7 dot font */
 const FONT = {
@@ -1178,7 +1202,7 @@ function buildAIRecipe(d) {
 function saveAI(list) {
   S.aiRecipes = S.aiRecipes || {};
   list.forEach(r => { S.aiRecipes[r.id] = r; });
-  const keep = new Set([].concat(S.saved || [], (S.history || []).map(h => h.id)));
+  const keep = new Set([].concat(S.saved || [], (S.history || []).map(h => h.id), ...(S.plans || []).map(p => p.days.map(d => d.id))));
   const ids = Object.keys(S.aiRecipes).sort((x, y) => (S.aiRecipes[y].at || 0) - (S.aiRecipes[x].at || 0));
   ids.slice(80).forEach(id => { if (!keep.has(id)) delete S.aiRecipes[id]; });
   save();
@@ -1231,7 +1255,7 @@ function weekDays() {
   const out = [], d0 = new Date();
   for (let i = 0; i < 7; i++) {
     const d = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate() + i);
-    out.push({ wd: d.getDay(), day: [ru[d.getDay()], en[d.getDay()]], date: [d.getDate() + ' ' + mr[d.getMonth()], me[d.getMonth()] + ' ' + d.getDate()] });
+    out.push({ wd: d.getDay(), ts: d.getTime(), num: d.getDate(), mon: [mr[d.getMonth()], me[d.getMonth()]], day: [ru[d.getDay()], en[d.getDay()]], date: [d.getDate() + ' ' + mr[d.getMonth()], me[d.getMonth()] + ' ' + d.getDate()] });
   }
   return out;
 }
@@ -1294,6 +1318,8 @@ try { const raw = localStorage.getItem('supa-proto'); if (raw) { const o = JSON.
 if (S.aiDay !== dayKey()) { S.aiUsed = 0; S.aiDay = dayKey(); }
 S.aiMax = AI_LIMIT;
 S.aiRecipes = S.aiRecipes || {};
+if (!S.plans) { S.plans = []; if (S.plan && S.plan.days) { const t0 = new Date(S.plan.at); t0.setHours(0, 0, 0, 0); S.plans = [Object.assign({ id: 'w' + S.plan.at.toString(36), note: '' }, S.plan, { days: S.plan.days.map((d, i) => { const dd = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() + i); return Object.assign({ ts: dd.getTime(), num: dd.getDate() }, d); }) })]; } }
+S.plan = S.plans[0] || null;
 let saveT = 0;
 function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem('supa-proto', JSON.stringify(S)); } catch (e) {} }, 200); }
 const savedCount = () => S.saved.length + S.savedColls.length;
@@ -1733,7 +1759,7 @@ function msgHTML(m) {
     h += `<div class="row wrap" style="gap:12px"><button class="btn m" data-a="dinners" data-mid="${m.id}">${isDesk() ? t('Смотреть все: ', 'See all ') + m.res.length : t('Листать все: ', 'Browse all ') + m.res.length}</button><span class="meta">${tt(m.foot || ['Ответ ИИ · может ошибаться', 'AI answer · may be wrong'])}</span></div>`;
   }
   if (m.mini) { const r = RECIPES[m.mini]; h += `<button class="next" data-a="go" data-r="recipe" ${dp({ id: m.mini, from: 'chat' })} style="background:var(--mist2)"><img src="${cover(r)}" alt=""><span><b style="display:block;font-weight:600">${rTitle(r)}</b><span class="meta">${t('вкусно', 'tasty')} · ${r.time} ${t('мин', 'min')} · ${t('сегодня', 'today')}</span></span></button>`; }
-  if (m.buttons) h += `<div class="${m.stackBtns ? 'stack' : 'row wrap'}" style="gap:8px">${m.buttons.map(b => `<button class="btn ${b.cls || 's mist'}" data-a="${b.a}" ${b.p ? dp(b.p) : ''}>${tt(b.l)}</button>`).join('')}</div>`;
+  if (m.buttons) h += `<div class="${m.stackBtns ? 'stack' : 'row wrap'}" style="gap:8px">${m.buttons.map(b => `<button class="btn ${b.cls || 's mist'}" data-a="${b.a}" ${b.r ? `data-r="${b.r}"` : ''} ${b.p ? dp(b.p) : ''}>${tt(b.l)}</button>`).join('')}</div>`;
   if (m.note) h += `<span class="meta">${tt(m.note)}</span>`;
   if (m.foot && !m.res) h += `<span class="foot">${tt(m.foot)}</span>`;
   if (m.ai) h += `<button class="more desk" data-a="msgmenu" data-mid="${m.id}" aria-label="${t('Действия с ответом', 'Answer actions')}">${I.more}</button>`;
@@ -1744,7 +1770,7 @@ function chatStart() {
   return `<p class="prompt" data-a="focuscomp" data-s>${t('Что хочется на ужин?', 'What do you feel like for dinner?')}</p>
   <div class="row" data-s style="justify-content:space-between;flex-wrap:wrap"><span class="mono">${t('или выбери, сколько сил', 'or pick your energy level')}</span>${aiCounter()}</div>
   <div class="energy" data-s>${ENERGY.map(e => `<button data-a="energy" data-k="${e.k}"><span class="th"><img src="${IMG(e.img)}" alt=""></span><span style="flex:1;min-width:0"><b>${tt(e.t)}</b><small>${tt(e.s)}</small></span>${S.energy === e.k ? `<span class="tag lem">${t('обычно', 'usual')}</span>` : ''}</button>`).join('')}</div>
-  <button class="weekcta" data-a="${S.plan && Date.now() - S.plan.at < 7 * 864e5 ? 'weekopen' : 'week'}" data-s><span class="wkdots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span style="flex:1;min-width:0"><b>${S.plan && Date.now() - S.plan.at < 7 * 864e5 ? t('Твоё меню на неделю', 'Your weekly menu') : t('Меню на неделю', 'Weekly menu')}</b><small>${S.plan && Date.now() - S.plan.at < 7 * 864e5 ? t('Открыть расписание и список покупок', 'Open the schedule and shopping list') : t('7 ужинов по дням — на всю семью', '7 dinners by day, for everyone')}</small></span><span class="tag lem">${t('новое', 'new')}</span></button>
+  <button class="weekcta" data-a="${planActive(S.plan) ? 'weekopen' : 'week'}" data-s><span class="wkdots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span style="flex:1;min-width:0"><b>${planActive(S.plan) ? t('Твоё меню на неделю', 'Your weekly menu') : t('Меню на неделю', 'Weekly menu')}</b><small>${planActive(S.plan) ? planRange(S.plan) + ' · ' + t('расписание и список покупок', 'schedule and shopping list') : t('7 ужинов по дням — на всю семью', '7 dinners by day, for everyone')}</small></span><span class="tag lem">${t('новое', 'new')}</span></button>
   <div class="row wrap" data-s style="gap:8px">${ne.length ? `<button class="chip" data-a="memory">${t('Не ем: ', 'Skip: ')}${esc(ne.slice(0, 2).join(', '))}${ne.length > 2 ? ' +' + (ne.length - 2) : ''}</button>` : `<button class="chip" data-a="memory">${I.plusS} ${t('Что не ешь?', 'Anything you skip?')}</button>`}
   ${S.products.length ? `<button class="chip" data-a="go" data-r="fridge">${prodDots()} ${t('Дома: ', 'At home: ')}${nw(S.products.length, 'product')}</button>` : `<button class="chip" data-a="picker">${I.plusS} ${t('Что есть дома?', 'What’s at home?')}</button>`}</div>`;
 }
@@ -1832,6 +1858,7 @@ function recipeBack() {
   const f = R.p.from;
   if (f === 'coll') return [t('Подборка', 'Collection'), 'coll', 'go', { id: R.p.cid }];
   if (f === 'mine') return [t('Моё', 'Saved'), 'mine'];
+  if (f === 'plan') return [t('Мой рацион', 'My meal plan'), 'plan'];
   if (f === 'feed') return [t('Лента', 'Feed'), 'feed'];
   if (f === 'chat') return [t('Чат', 'Chat'), 'chat'];
   if (f === 'fridge') return [t('Продукты', 'Food'), 'fridge'];
@@ -1898,6 +1925,36 @@ VIEWS.recipe = () => {
   const fix = h => h && h.replace('<ol class="steps" data-s></ol>', wait).replace(/data-a="startcook"/g, r.steps.length ? 'data-a="startcook"' : 'disabled data-a="noop"');
   v.body = fix(v.body) + note; if (v.panel) v.panel = fix(v.panel);
   return v;
+};
+
+VIEWS.plan = () => {
+  const plans = S.plans || [], plan = R.p.pid ? findPlan(R.p.pid) : plans[0];
+  const today = new Date().setHours(0, 0, 0, 0);
+  let body = '';
+  if (RT.planGen) {
+    body += `<div class="card pad-l stack" data-s style="gap:12px"><span class="mono">${t('Меню на неделю', 'Weekly menu')}</span><div class="typing">${botAv()}<i></i><i></i><i></i><span>${t('Котелок составляет меню на 7 дней… обычно до минуты', 'Kotelok is planning 7 dinners… usually under a minute')}</span></div></div>`;
+    return { title: t('Мой рацион', 'My meal plan'), body };
+  }
+  if (!plan) {
+    const dot = '<i style="width:14px;height:14px"></i>';
+    body += `<div class="card pad-l stack empty" data-s style="align-items:flex-start;gap:14px"><div class="wkdots" aria-hidden="true" style="grid-template-columns:repeat(7,14px);gap:6px">${dot.repeat(7)}</div><h2 class="h-disp" style="font-size:44px">${t('Меню на неделю', 'Weekly menu')}</h2><p style="margin:0">${t('Котелок составит 7 ужинов по дням и датам на нужное число людей и сам соберёт список покупок. Меню сохранится здесь.', 'Kotelok plans 7 dinners by day and date for your household and builds the shopping list. The menu is kept here.')}</p><button class="btn" data-a="plannew">${t('Составить меню', 'Plan the week')}</button></div>`;
+    return { title: t('Мой рацион', 'My meal plan'), body };
+  }
+  const isCur = plan === plans[0];
+  body += `<div class="plhead" data-s><span class="mono">${isCur && planActive(plan) ? t('Текущая неделя', 'This week') : t('Архив', 'Archive')} · ${planRange(plan)}</span><h1 class="h-disp" style="font-size:52px;margin:0">${t('Меню на неделю', 'Weekly menu')}</h1><span class="meta">${plan.people ? t('на ', 'for ') + nw(plan.people, 'person') + ' · ' : ''}${nw(plan.days.length, 'dinner')} · ${plan.ai ? t('придумал Котелок', 'by Kotelok') : t('из базы рецептов', 'from the recipe base')}</span></div>`;
+  if (plan.note) body += `<div class="tip" data-s>${botAv()}<span>${esc(plan.note)}</span></div>`;
+  body += `<div class="plactions" data-s><button class="btn s dark" data-a="weekshop" ${dp({ pid: plan.id })}>${t('Что купить', 'Shopping list')}</button><button class="btn s mist" data-a="plannew">${t('Новое меню', 'New menu')}</button>${isCur ? '' : `<button class="btn s mist" data-a="go" data-r="plan" data-replace="1">${t('К текущему', 'Back to current')}</button>`}</div>`;
+  body += `<div class="pldays" data-s>${plan.days.map(d => {
+    const r = RECIPES[d.id]; if (!r) return '';
+    const ts = d.ts || plan.at, isT = ts === today, past = ts < today;
+    const done = (S.history || []).some(h => h.id === d.id);
+    const hl = haveLabel(r);
+    const flag = done ? `<span class="pflag ok">${t('приготовлено', 'cooked')}</span>` : isT ? `<span class="pflag t">${t('сегодня', 'today')}</span>` : '';
+    return `<div class="pday ${isT ? 'today' : ''} ${past && !done ? 'past' : ''}"><div class="pdate"><b>${tt(d.day)}</b><span class="num">${d.num || new Date(ts).getDate()}</span><small>${d.mon ? tt(d.mon) : tt(d.date).replace(/^\d+\s*/, '')}</small></div><button class="pdish" data-a="go" data-r="recipe" ${dp({ id: d.id, from: 'plan' })}><img src="${cover(r)}" alt="" loading="lazy"><span style="display:flex;flex-direction:column">${flag}<b>${rTitle(r)}</b><small>${r.time} ${t('мин', 'min')}${r.serves ? ' · ' + servesW(r.serves) : ''}${hl.txt ? ' · ' + hl.txt : ''}</small></span></button></div>`;
+  }).join('')}</div>`;
+  if (plans.length > 1) body += `<div class="stack" data-s style="gap:10px"><span class="mono">${t('Прошлые меню', 'Earlier menus')}</span><div class="plarch">${plans.map(p => `<button class="chip ${p.id === plan.id ? 'on' : ''}" data-a="go" data-r="plan" ${dp({ pid: p.id })} data-replace="1">${planRange(p)}${p.people ? ' · ' + t('на ', 'for ') + p.people : ''}</button>`).join('')}</div></div>`;
+  body += `<button class="lnk" data-a="plandel" ${dp({ pid: plan.id })} data-s style="align-self:flex-start;font-size:14px;color:#8A8A87">${t('Удалить это меню', 'Delete this menu')}</button>`;
+  return { title: t('Мой рацион', 'My meal plan'), body };
 };
 
 /* ---------- feed ---------- */
@@ -2335,47 +2392,77 @@ function askPeople(q) {
   addMsg({ t: 'bot', ai: 1, text: both(() => t('Соберу меню ужинов на 7 дней. На сколько человек готовим?', 'I’ll plan dinners for 7 days. How many people are eating?')),
     buttons: [1, 2, 3, 4, 5].map(n => ({ l: [n === 5 ? '5+' : String(n), n === 5 ? '5+' : String(n)], a: 'weekppl', cls: n === 2 ? 's dark' : 's mist', p: { n, q } })) });
 }
-async function runWeek(q, people) {
-  if (!S.aiOn) return showWeek(baseWeek(), people, null, false);
-  if (!aiAllowed()) return limitReply();
-  addMsg({ t: 'typing' });
-  let res = null;
+async function buildWeek(q, people) {
+  if (!S.aiOn) return { ids: baseWeek(), note: null, ai: false };
   const days = weekDays();
+  let res = null;
   try {
     const p = suggestPayload(q, false);
     [res] = await Promise.all([api('week', { people, text: q, days: days.map(d => tt(d.day) + ' ' + tt(d.date)), products: p.products, avoid: p.avoid, liked: p.liked }, 64000), wait(600)]);
   } catch (e) { res = null; }
-  dropMsg('typing');
-  if (!res || !res.days) {
-    addMsg({ t: 'bot', text: both(() => t('Котелок не успел составить меню. Вот неделя из проверенной базы — или попробуй ещё раз.', 'Kotelok didn’t finish the menu. Here’s a week from the recipe base, or try again.')), buttons: [{ l: ['Попробовать ещё раз', 'Try again'], a: 'weekppl', cls: 's dark', p: { n: people, q } }] });
-    return showWeek(baseWeek(), people, null, false);
-  }
+  if (!res || !res.days) return { ids: baseWeek(), note: null, ai: false, failed: true };
   const ids = res.days.map(d => { if (!d) return null; const r = buildAIRecipe(d); return recipeOK(r) ? r.id : null; });
-  const list = ids.map(id => id ? RECIPES[id] : null);
-  saveAI(list.filter(Boolean));
+  saveAI(ids.filter(Boolean).map(id => RECIPES[id]));
   const base = baseWeek().filter(id => !ids.includes(id));
-  const filled = ids.map(id => id || base.shift()).filter(Boolean);
   useAI();
-  showWeek(filled, people, res.note, true);
+  return { ids: ids.map(id => id || base.shift()).filter(Boolean), note: res.note || null, ai: true };
 }
-function showWeek(ids, people, note, ai) {
-  if (!ids.length) return noneMsg();
+function savePlan(ids, people, note, ai, wish) {
   const days = weekDays();
-  S.plan = { at: Date.now(), people, ai: !!ai, days: ids.map((id, i) => ({ id, day: days[i].day, date: days[i].date, wd: days[i].wd })) };
+  const plan = { id: 'w' + Date.now().toString(36), at: Date.now(), people: people || 0, ai: !!ai, note: note || '', wish: wish || '', days: ids.map((id, i) => Object.assign({ id }, days[i])) };
+  S.plans = [plan].concat(S.plans || []).slice(0, 6);
+  S.plan = plan; save();
+  return plan;
+}
+const findPlan = pid => (S.plans || []).find(p => p.id === pid) || (S.plans || [])[0] || null;
+function planRange(p) {
+  if (!p || !p.days || !p.days.length) return '';
+  const a = new Date(p.days[0].ts || p.at), z = new Date(p.days[p.days.length - 1].ts || p.at + 6 * 864e5);
+  const M = S.lang === 'en' ? ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] : ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+  return a.getMonth() === z.getMonth() ? `${a.getDate()}–${z.getDate()} ${M[a.getMonth()]}` : `${a.getDate()} ${M[a.getMonth()]} – ${z.getDate()} ${M[z.getMonth()]}`;
+}
+const planActive = p => !!(p && p.days && p.days.length) && (p.days[p.days.length - 1].ts || p.at + 6 * 864e5) >= new Date().setHours(0, 0, 0, 0);
+async function runWeek(q, people) {
+  if (S.aiOn && !aiAllowed()) return limitReply();
+  addMsg({ t: 'typing' });
+  const w = await buildWeek(q, people);
+  dropMsg('typing');
+  if (w.failed) addMsg({ t: 'bot', text: both(() => t('Котелок не успел составить меню. Вот неделя из проверенной базы — или попробуй ещё раз.', 'Kotelok didn’t finish the menu. Here’s a week from the recipe base, or try again.')), buttons: [{ l: ['Попробовать ещё раз', 'Try again'], a: 'weekppl', cls: 's dark', p: { n: people, q } }] });
+  showWeek(w.ids, people, w.note, w.ai, q);
+}
+function showWeek(ids, people, note, ai, wish) {
+  if (!ids.length) return noneMsg();
+  const plan = savePlan(ids, people, note, ai, wish);
   const q = { type: 'text', text: 'week', gen: 1, week: 1, ai: ids };
   S.query = q; S.removed = [];
   const head = note ? esc(note) : null;
   const def = both(() => people ? t(`Меню ужинов на неделю на ${nw(people, 'person')}.`, `Dinner plan for the week for ${people}.`) : t('Меню ужинов на неделю.', 'Dinner plan for the week.'));
-  addMsg({ t: 'bot', ai: ai ? 1 : 0, text: head ? [head, head] : def, week: 1, weekPlan: S.plan, res: ids, q, lim: S.lim,
+  addMsg({ t: 'bot', ai: ai ? 1 : 0, text: head ? [head, head] : def, week: 1, weekPlan: plan, res: ids, q, lim: S.lim,
+    buttons: [{ l: ['Открыть в «Моём рационе»', 'Open in My meal plan'], a: 'go', cls: 's mist', p: {}, r: 'plan' }],
     foot: ai ? ['Придумал ИИ · проверяй время и температуру', 'AI-made · check times and temperatures'] : ['Из базы рецептов supa', 'From the supa recipe base'] });
+}
+function newPlanSheet() {
+  const last = (S.plans && S.plans[0] && S.plans[0].people) || 2;
+  const ov = sheet(t('Новое меню на неделю', 'New weekly menu'), `<div class="stack" data-s style="gap:14px"><span class="mono">${t('На сколько человек', 'How many people')}</span><div class="row wrap" style="gap:8px">${[1, 2, 3, 4, 5, 6].map(n => `<button class="chip ${n === last ? 'on' : ''}" data-a="pplpick" data-n="${n}" aria-pressed="${n === last}">${n === 6 ? '6+' : n}</button>`).join('')}</div><span class="mono">${t('Пожелания — необязательно', 'Wishes, optional')}</span><input class="input" id="wish" maxlength="200" placeholder="${t('Например: побольше супов, без рыбы, бюджетно', 'E.g. more soups, no fish, on a budget')}" autocomplete="off"><button class="btn full" data-a="plango">${S.aiOn ? t('Составить меню', 'Plan the week') : t('Собрать из базы рецептов', 'Build from the recipe base')}</button><span class="note">${S.aiOn ? t('Составление меню тратит одну подборку с ИИ.', 'Planning a week uses one AI pick.') : t('ИИ выключен — соберу неделю из проверенных рецептов.', 'AI is off, so I’ll use tested recipes.')}</span></div>`, { kind: 'ask' });
+  ov._ppl = last;
+}
+async function planGenerate(people, wish) {
+  if (S.aiOn && !aiAllowed()) { go('plan'); return toast(t('На сегодня подборки с ИИ закончились — завтра продолжим', 'No AI picks left today. Back tomorrow'), { tone: 'r', ms: 5000 }); }
+  RT.planGen = true; go('plan', {});
+  const q = (wish ? wish + '. ' : '') + t('Меню ужинов на неделю', 'Weekly dinner menu');
+  const w = await buildWeek(q, people);
+  RT.planGen = false;
+  savePlan(w.ids, people, w.note, w.ai, wish);
+  if (w.failed) toast(t('Котелок не успел — собрал неделю из базы рецептов', 'Kotelok was slow, so this week comes from the recipe base'), { ms: 5000 });
+  if (R.route === 'plan') go('plan', {}, { replace: true });
 }
 function weekHTML(plan) {
   if (!plan || !plan.days) return '';
   const rows = plan.days.filter(d => RECIPES[d.id]).map((d, i) => { const r = RECIPES[d.id]; return `<button class="wkrow" data-a="go" data-r="recipe" ${dp({ id: d.id, from: 'chat' })}><span class="d"><b>${tt(d.day)}</b><small>${i === 0 && new Date(plan.at).toDateString() === new Date().toDateString() ? t('сегодня', 'today') : tt(d.date)}</small></span><img src="${cover(r)}" alt="" loading="lazy"><span class="tl"><b>${rTitle(r)}</b><small>${r.time} ${t('мин', 'min')}${r.serves ? ' · ' + servesW(r.serves) : ''}</small></span></button>`; }).join('');
-  return `<div class="stack" style="gap:10px"><div class="wkhead"><span class="mono">${t('Меню на неделю', 'Weekly menu')}${plan.people ? ' · ' + t('на ', 'for ') + nw(plan.people, 'person') : ''}</span><button class="lnk" data-a="weekshop" style="font-size:14px">${t('Что купить →', 'Shopping list →')}</button></div><div class="wklist">${rows}</div></div>`;
+  return `<div class="stack" style="gap:10px"><div class="wkhead"><span class="mono">${t('Меню на неделю', 'Weekly menu')}${plan.people ? ' · ' + t('на ', 'for ') + nw(plan.people, 'person') : ''}</span><button class="lnk" data-a="weekshop" ${dp({ pid: plan.id })} style="font-size:14px">${t('Что купить →', 'Shopping list →')}</button></div><div class="wklist">${rows}</div></div>`;
 }
-function weekShopSheet() {
-  const plan = S.plan; if (!plan) return;
+function weekShopSheet(plan) {
+  plan = plan || S.plan; if (!plan) return;
   const cnt = {};
   plan.days.forEach(d => { const r = RECIPES[d.id]; if (!r) return; r.ing.forEach(([k, , , opt]) => { if (opt || isPantry(k)) return; cnt[k] = (cnt[k] || 0) + 1; }); });
   const keys = Object.keys(cnt).sort((a, b) => (S.products.includes(a) - S.products.includes(b)) || cnt[b] - cnt[a]);
@@ -2795,8 +2882,12 @@ const A = {
   cookask: () => cookAskSheet(),
   week: () => { if (needNet()) return; ensureChat(); addMsg({ t: 'q', text: ['Меню на неделю', 'Weekly menu'] }); askPeople(t('Меню ужинов на неделю', 'Weekly dinner menu')); },
   weekppl: el => { const p = P(el); addMsg({ t: 'me', text: [p.n === 5 ? 'На 5 и больше' : 'На ' + p.n, p.n === 5 ? '5 or more' : 'For ' + p.n] }); if (needNet()) return; runWeek(p.q || 'меню на неделю', p.n); },
-  weekshop: () => weekShopSheet(),
-  weekopen: () => { if (!S.plan) return; const ov = sheet(t('Меню на неделю', 'Weekly menu'), `<div data-s>${weekHTML(S.plan)}</div>`, { kind: 'ask' }); },
+  weekshop: el => weekShopSheet(findPlan(P(el).pid)),
+  plannew: () => newPlanSheet(),
+  pplpick: el => { const ov = el.closest('.ov'); ov._ppl = +el.dataset.n; ov.querySelectorAll('[data-a="pplpick"]').forEach(b => { const on = b === el; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); },
+  plango: el => { const ov = el.closest('.ov'); if (needNet()) return; const n = ov._ppl || 2, w = ((ov.querySelector('#wish') || {}).value || '').trim(); closeOv(ov, true); setTimeout(() => planGenerate(n, w), 200); },
+  plandel: el => { const pid = P(el).pid; S.plans = (S.plans || []).filter(p => p.id !== pid); S.plan = S.plans[0] || null; save(); go('plan', {}, { replace: true }); toast(t('Меню удалено', 'Menu deleted')); },
+  weekopen: () => go('plan'),
   weekcopy: el => { const ov = el.closest('.ov'); const txt = (ov && ov._shop) || ''; try { navigator.clipboard.writeText(txt).then(() => toast(t('Список скопирован', 'List copied'), { tone: 'g' })); } catch (e) { toast(t('Не получилось скопировать', 'Couldn’t copy'), { tone: 'r' }); } },
   airetry: el => { const id = P(el).id; RT.aiLoad = RT.aiLoad || {}; RT.aiLoad[id] = null; render(false); },
   noop: () => {},
@@ -3026,7 +3117,7 @@ async function shrinkImage(f, max = 1280) {
   RT.lastMsgRendered = MID;
   setLangAttr();
   const h = (location.hash || '').slice(1);
-  const ok = ['chat', 'feed', 'mine', 'fridge', 'profile', 'plus', 'public', 'dinners'];
+  const ok = ['chat', 'feed', 'plan', 'mine', 'fridge', 'profile', 'plus', 'public', 'dinners'];
   R.route = !S.onboarded ? 'onb' : ok.includes(h) ? h : 'chat';
   R.p = R.route === 'onb' ? { step: 0 } : R.route === 'public' ? { id: 'shak' } : {};
   if (R.route === 'dinners' && !S.query) R.route = 'chat';
