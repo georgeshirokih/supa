@@ -728,6 +728,7 @@ textarea.input{height:auto;min-height:120px;padding:14px 18px;resize:vertical;li
 <div id="app"></div>
 <div id="layer"></div>
 <div id="toasts" class="toasts" aria-live="polite"></div>
+<script src="recipes.js"></script>
 <script>
 'use strict';
 /* ================= DATA ================= */
@@ -1007,6 +1008,16 @@ const RLIST = [
      {t:['Подавай со сметаной и укропом','Serve with sour cream and dill'],i:['sourcream','dill']}],
    tip:['Борщ вкуснее на второй день.','Borscht tastes better on day two.'] },
 ];
+/* ---------- дополнительная база из recipes.js ---------- */
+(function mergeData() {
+  const D = window.SUPA_DATA; if (!D) return;
+  Object.assign(ING, D.ing || {});
+  Object.assign(SUBS, D.subs || {});
+  (D.pick || []).forEach(k => { if (ING[k] && !PICK_ORDER.includes(k)) PICK_ORDER.push(k); });
+  (D.photos || []).forEach(id => { const r = RLIST.find(x => x.id === id); if (r) r.img = id; });
+  const have = new Set(RLIST.map(r => r.id));
+  (D.recipes || []).forEach(r => { if (!have.has(r.id) && r.ing.every(i => ING[i[0]])) { RLIST.push(r); have.add(r.id); } });
+})();
 const RECIPES = {}; RLIST.forEach(r => RECIPES[r.id] = r);
 const SHORT = { buck:['гречка','buckwheat'], omel:['омлет','omelette'], pasta:['паста','pasta'], shak:['шакшука','shakshuka'], syr:['сырники','syrniki'] };
 
@@ -1274,7 +1285,7 @@ function cover(r) {
   if (COVER[r.id]) return COVER[r.id];
   const W = 480, H = 400, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const x = cv.getContext('2d'); if (!x) return '';
-  const R = rng(hashStr(r.id)), [shape, baseH, bgH, spec] = r.cv;
+  const R = rng(hashStr(r.id)), [shape, baseH, bgH, spec] = r.cv || ['plate', ING[r.ing[0][0]] ? ING[r.ing[0][0]].c : '#F2C94C', '#EDE7DA', [['mound', '#F2C94C', 108, 0, 0]]];
   const bg = hex(bgH), base = hex(baseH);
   const cx = W * 0.5 + (R() - 0.5) * 20, cy = H * 0.52, plateR = 176, foodR = shape === 'bowl' ? 134 : shape === 'pan' ? 150 : 126;
   const rimCol = shape === 'pan' ? [40, 38, 36] : shape === 'bowl' ? [250, 248, 242] : [255, 255, 252];
@@ -1718,9 +1729,10 @@ VIEWS.cook = () => {
     <h2 class="h-cond cstep" data-s>${tt(st.t)}</h2>
     ${chips ? `<div class="row wrap" data-s style="gap:6px">${chips}</div>` : ''}
     <div class="row wrap" data-s><button class="btn ${desk ? '' : 'full'}" data-a="cnext">${last ? t('Готово — оценить', 'Done, rate it') : t('Дальше — шаг ', 'Next: step ') + (c.step + 2) + ' ' + t('из', 'of') + ' ' + n}</button>${c.step > 0 ? `<button class="btn ghost" data-a="cprev">‹ ${t('Шаг назад', 'Previous step')}</button>` : ''}</div>
+    ${desk ? '' : `<button class="btn sec full" data-a="cookask" data-s>${t('Спросить Котелка', 'Ask Kotelok')}</button>`}
     ${desk ? '' : nextS}${note}`;
   const panel = `<div class="card" data-s><div class="mono" style="margin-bottom:8px">${t('Все шаги', 'All steps')}</div><div class="slist">${r.steps.map((s, i) => `<button class="${i < c.step ? 'done' : i === c.step ? 'cur' : ''}" data-a="cgo" data-i="${i}"><span class="n">${i < c.step ? '✓' : i + 1}</span><span>${tt(s.t)}</span></button>`).join('')}</div></div>
-    <div class="card" data-s style="background:var(--mist2)"><p style="margin:0;font-size:15px">${t('Руки заняты? Пробел — пауза, → — дальше, или скажи «дальше».', 'Hands busy? Space pauses, → goes next, or just say “next”.')}</p><p class="note" style="margin-top:6px">${t('Экран не погаснет, пока вкладка открыта.', 'The screen stays on while this tab is open.')}</p></div>`;
+    <div class="card" data-s style="background:var(--mist2)"><p style="margin:0;font-size:15px">${t('Руки заняты? Пробел — пауза, → — дальше.', 'Hands busy? Space pauses, → goes next.')}</p><p class="note" style="margin-top:6px">${t('Экран не погаснет, пока вкладка открыта.', 'The screen stays on while this tab is open.')}</p></div>`;
   return { title: desk ? t('Готовка · ', 'Cooking · ') + esc(rTitle(r).toLowerCase()) : t('Готовка', 'Cooking'), back: [t('Рецепт', 'Recipe'), 'recipe', 'exitcook'], body, panel, dock: desk ? composer(t('Спроси по ходу: «чем заменить сметану?»', 'Ask as you go: “what can replace sour cream?”')) : '' };
 };
 
@@ -1863,10 +1875,10 @@ VIEWS.profile = () => {
   const desk = isDesk(), ne = noEatSummary(), en = ENERGY.find(e => e.k === S.energy);
   const user = `<div class="${desk ? 'card ' : ''}row" data-s style="gap:14px">${ava('bigava')}<span style="flex:1;min-width:0">${S.name ? `<button class="namebtn" data-a="namesheet" aria-label="${t('Изменить имя', 'Edit name')}">${esc(S.name)}<span class="ash">✎</span></button>` : `<button class="lnk" data-a="namesheet" style="font-size:20px;display:block">${t('Как тебя зовут?', 'What’s your name?')}</button>`}<span class="meta">${S.since ? t('с ', 'since ') + fmtD(new Date(S.since)) + ' · ' : ''}${nw(S.cooked, 'dinner')} · ${S.auth ? esc(S.auth) : t('вход не выполнен', 'not signed in')}</span></span>${S.auth ? '' : `<button class="btn sec s" data-a="login">${t('Войти по почте', 'Sign in')}</button>`}</div>`;
   const tg = (k, tag, cls, ttl, sub) => `<div class="prow"><span class="tag ${cls}">${tag}</span><span class="tx"><b>${ttl}</b><small>${sub}</small></span><button class="switch ${S.toggles[k] ? 'on' : ''}" data-a="toggle" data-k="${k}" role="switch" aria-checked="${S.toggles[k]}" aria-label="${ttl}"></button></div>`;
-  const toggles = `<div class="card" data-s style="padding:4px 18px">${tg('energy', t('силы', 'energy'), 'no', t('Сколько сил вечером', 'Evening energy'), en ? t('Обычно: ', 'Usually: ') + tt(en.t).toLowerCase() : t('Пока не знаю', 'Not known yet'))}${tg('photo', t('фото', 'photo'), 'sub', t('Фото холодильника', 'Fridge photos'), t('Храню 24 часа, потом удаляю', 'Kept for 24 hours, then deleted'))}${tg('taste', t('вкусы', 'taste'), 'ok', t('Вкусы и «не ем»', 'Tastes and food rules'), ne.length ? t('Не ем: ', 'Skip: ') + esc(ne.join(', ')) : t('Пока ничего', 'Nothing yet'))}</div>`;
+  const toggles = `<div class="card" data-s style="padding:4px 18px">${tg('energy', t('силы', 'energy'), 'no', t('Сколько сил вечером', 'Evening energy'), en ? t('Обычно: ', 'Usually: ') + tt(en.t).toLowerCase() : t('Пока не знаю', 'Not known yet'))}${tg('photo', t('фото', 'photo'), 'sub', t('Фото холодильника', 'Fridge photos'), t('Не храню — только распознаю', 'Not kept, only analysed'))}${tg('taste', t('вкусы', 'taste'), 'ok', t('Вкусы и «не ем»', 'Tastes and food rules'), ne.length ? t('Не ем: ', 'Skip: ') + esc(ne.join(', ')) : t('Пока ничего', 'Nothing yet'))}</div>`;
   const prefs = `<div class="card stack" data-s><div class="row" style="justify-content:space-between"><span class="mono">${t('Настройки подбора', 'Picking preferences')}</span><button class="lnk" data-a="memory" style="font-size:14px">${t('Изменить', 'Edit')}</button></div><div class="row wrap" style="gap:6px">${ne.length ? ne.map(n => `<span class="chip mist">${esc(n)}</span>`).join('') : `<span class="note">${t('Ем всё, ограничений нет', 'I eat everything')}</span>`}</div><div class="row wrap" style="gap:18px"><button class="lnk" data-a="onbagain">${t('Пройти настройку заново →', 'Redo the setup →')}</button></div></div>`;
   const lang = `<div class="card row" data-s style="justify-content:space-between;gap:12px;flex-wrap:wrap"><span><span class="mono">${t('Язык', 'Language')}</span><span style="display:block;font-size:15px">${t('Интерфейс и рецепты', 'Interface and recipes')}</span></span>${langSeg()}</div>`;
-  const who = `<div class="card stack" data-s><span class="mono">${t('Кому передаём', 'Who we share with')}</span><p style="margin:0;font-size:15px">${t('Запросы и фото обрабатывает внешний ИИ-сервис [провайдер]. Имя и контакты не передаём, на обучение не отправляем. Данные хранятся в твоём профиле supa.', 'Requests and photos are processed by an external AI service [provider]. We don’t share your name or contacts and don’t use your data for training. Your data lives in your supa profile.')}</p><div class="row wrap" style="gap:18px"><button class="lnk" data-a="how">${t('Как это устроено →', 'How it works →')}</button><button class="lnk red" data-a="${S.aiOn ? 'aioff' : 'aion'}">${S.aiOn ? t('Выключить Котелка →', 'Turn off Kotelok →') : t('Включить Котелка →', 'Turn on Kotelok →')}</button></div></div>`;
+  const who = `<div class="card stack" data-s><span class="mono">${t('Кому передаём', 'Who we share with')}</span><p style="margin:0;font-size:15px">${t('Запросы и фото обрабатывает ИИ Яндекса (Yandex Cloud, серверы в России). Имя и контакты не передаём, на обучение не отправляем, фото не храним. Остальные данные лежат только на этом устройстве.', 'Requests and photos are processed by Yandex AI (Yandex Cloud, servers in Russia). We don’t share your name or contacts, don’t use them for training and don’t keep photos. Everything else stays on this device.')}</p><a class="lnk" href="privacy.html" target="_blank" rel="noopener" style="font-size:14px;align-self:flex-start">${t('Политика конфиденциальности', 'Privacy policy')}</a><div class="row wrap" style="gap:18px"><button class="lnk" data-a="how">${t('Как это устроено →', 'How it works →')}</button><button class="lnk red" data-a="${S.aiOn ? 'aioff' : 'aion'}">${S.aiOn ? t('Выключить Котелка →', 'Turn off Kotelok →') : t('Включить Котелка →', 'Turn on Kotelok →')}</button></div></div>`;
   const acts = `<div class="stack" data-s><button class="btn sec full" data-a="archive">${t('Скачать мои данные', 'Download my data')}</button><button class="btn ghost danger full" data-a="delall">${t('Удалить всё и выйти', 'Delete everything')}</button></div>`;
   if (desk) return { title: t('Мои данные', 'My data'), body: user + prefs + toggles + who, panel: plusRow().replace('class="planrow"', 'class="planrow" style="flex-direction:column;align-items:stretch"') + lang + `<div class="card" data-s>${acts}</div>` };
   return { title: t('Мои данные', 'My data'), body: user + plusRow() + prefs + lang + toggles + who + acts };
@@ -1941,7 +1953,7 @@ function onbView() {
     h = t('Котелок и твои данные', 'Kotelok and your data');
     sub = t('Чтобы подбирать ужины, я запоминаю только это:', 'To pick dinners, this is all I remember:');
     const items = [[t('Силы', 'Energy'), t('Сколько сил и что ты не ешь', 'Your energy and what you skip'), 'var(--pink)'], [t('Фото', 'Photos'), t('Холодильник — только если покажешь', 'Your fridge, only if you show me'), 'var(--sky)'], [t('Вкусы', 'Tastes'), t('Что понравилось — чтобы советовать точнее', 'What you liked, to suggest better'), 'var(--leaf)']];
-    ctl = `<div class="card pad-l stack" style="gap:14px;border-radius:30px">${items.map(([a, b, c]) => `<div class="row" style="gap:14px"><span style="width:44px;height:44px;border-radius:50%;background:${c};flex:none"></span><span><b style="display:block;font-weight:600;font-size:24px;line-height:1.1">${a}</b><span class="ash" style="font-size:14px">${b}</span></span></div>`).join('')}<span class="mono" style="line-height:1.5">${t('Запросы и фото обрабатывает внешний ИИ-сервис [провайдер]. Имя и контакты не передаём. Храним в твоём профиле supa.', 'Requests and photos are processed by an external AI service [provider]. We don’t share your name or contacts. Stored in your supa profile.')}</span><button class="lnk" data-a="how" style="align-self:flex-start;font-size:14px">${t('Как это устроено →', 'How it works →')}</button></div>`;
+    ctl = `<div class="card pad-l stack" style="gap:14px;border-radius:30px">${items.map(([a, b, c]) => `<div class="row" style="gap:14px"><span style="width:44px;height:44px;border-radius:50%;background:${c};flex:none"></span><span><b style="display:block;font-weight:600;font-size:24px;line-height:1.1">${a}</b><span class="ash" style="font-size:14px">${b}</span></span></div>`).join('')}<span class="mono" style="line-height:1.5">${t('Запросы и фото обрабатывает ИИ Яндекса (Yandex Cloud, серверы в России). Имя и контакты не передаём, фото не храним. Всё остальное лежит только на этом устройстве.', 'Requests and photos are processed by Yandex AI (Yandex Cloud, servers in Russia). We don’t share your name or contacts and don’t keep photos. Everything else stays on this device.')}</span><span class="row wrap" style="gap:16px"><button class="lnk" data-a="how" style="font-size:14px">${t('Как это устроено →', 'How it works →')}</button><a class="lnk" href="privacy.html" target="_blank" rel="noopener" style="font-size:14px">${t('Политика конфиденциальности', 'Privacy policy')}</a></span></div>`;
   }
   const dock = st < 4
     ? `<span class="onb-fb" id="onbfb" aria-live="polite">${onbFeedback(st)}</span><button class="btn onb-next" data-a="onbnext">${next}</button>`
@@ -1969,7 +1981,7 @@ function viewPublic() {
   <div class="stepsg">${r.steps.map((s, i) => `<div class="s" data-s><span class="steps"><span class="n">${i + 1}</span></span><span>${tt(s.t)}.</span></div>`).join('')}</div>
   <div class="sect-h" data-s><span class="mono">${t('Ещё ужины до 30 минут', 'More dinners under 30 minutes')}</span><button data-a="go" data-r="feed">${t('Все рецепты →', 'All recipes →')}</button></div>
   <div class="pgrid">${more.map(x => `<button class="card row" data-a="go" data-r="public" ${dp({ id: x.id })} data-s style="gap:12px;padding:10px;text-align:left"><img src="${cover(x)}" alt="" style="width:64px;height:64px;border-radius:14px;object-fit:cover"><span><b style="display:block;font-weight:600">${rTitle(x)}</b><span class="meta">${x.time} ${t('мин', 'min')}</span></span></button>`).join('')}</div>
-  <footer data-s>© supa · ${t('Рецепты написаны командой supa · Политика конфиденциальности · Условия подписки', 'Recipes by the supa team · Privacy policy · Subscription terms')}</footer></div>`;
+  <footer data-s>© supa · ${t('Рецепты написаны командой supa · ', 'Recipes by the supa team · ')}<a href="privacy.html" target="_blank" rel="noopener">${t('Политика конфиденциальности', 'Privacy policy')}</a>${''}</footer></div>`;
 }
 
 /* ================= RENDER & ROUTER ================= */
@@ -2206,7 +2218,7 @@ function closeTdone() { alarmStop(); RT.muted = false; clearInterval(RT.ringIv);
 function menuOv() {
   S.seenNav = true; save();
   const cur = SEC_OF[R.route];
-  overlay(`<div class="menu" role="menu" aria-label="${t('Разделы', 'Sections')}"><nav class="snav">${SECTIONS.map(s => `<button role="menuitem" class="${cur === s.k ? 'on' : ''}" data-a="go" data-r="${s.k}"><span class="d" style="background:${s.c}"></span><span class="tx"><b>${tt(s.t)}</b><small>${s.s()}</small></span>${s.badge ? `<span class="newtag">${tt(s.badge)}</span>` : ''}${cur === s.k ? I.check : ''}</button>`).join('')}</nav><div class="divline" style="margin:6px 12px"></div><button class="plink" role="menuitem" data-a="go" data-r="profile">${t('Профиль и данные ИИ', 'Profile & AI data')}</button><button class="plink" role="menuitem" data-a="states">${t('Все экраны прототипа', 'All prototype screens')}</button><div class="menu-lang">${I.globe}${langSeg('sm')}</div></div>`, { kind: 'menu' });
+  overlay(`<div class="menu" role="menu" aria-label="${t('Разделы', 'Sections')}"><nav class="snav">${SECTIONS.map(s => `<button role="menuitem" class="${cur === s.k ? 'on' : ''}" data-a="go" data-r="${s.k}"><span class="d" style="background:${s.c}"></span><span class="tx"><b>${tt(s.t)}</b><small>${s.s()}</small></span>${s.badge ? `<span class="newtag">${tt(s.badge)}</span>` : ''}${cur === s.k ? I.check : ''}</button>`).join('')}</nav><div class="divline" style="margin:6px 12px"></div><button class="plink" role="menuitem" data-a="go" data-r="profile">${t('Профиль и данные ИИ', 'Profile & AI data')}</button>${DEV ? `<button class="plink" role="menuitem" data-a="states">${t('Все экраны прототипа', 'All prototype screens')}</button>` : ''}<div class="menu-lang">${I.globe}${langSeg('sm')}</div></div>`, { kind: 'menu' });
 }
 const PW = {
   third: () => [t('Три ужина вместе — уже традиция', 'Three dinners together. That’s a habit'), t('С Котелком+ я буду подбирать без лимита и помнить, что вам зашло.', 'With Kotelok+ I’ll pick without limits and remember what you loved.')],
@@ -2516,7 +2528,7 @@ const A = {
     if (R.route !== 'fridge') go('fridge');
     setTimeout(() => { const f = $('#photo'); f && f.click(); }, 50);
   },
-  olddate: () => toast(t('Старое фото уже удалено — храню 24 часа', 'That photo is gone. I keep photos for 24 hours')),
+  olddate: () => toast(t('Фото не сохраняется — сфотографируй заново', 'Photos aren’t kept. Take a new one')),
   perm: el => { const had = !!topOv(); closeAll(); setTimeout(() => permSheet(el.dataset.k), had ? 280 : 0); },
   typeinstead: () => { closeAll(); setTimeout(() => { const c = $('#comp'); c && c.focus(); }, 300); },
   install: () => installSheet(),
@@ -2524,7 +2536,7 @@ const A = {
   installno: el => closeOv(el.closest('.ov')),
   hidebanner: () => { S.installBanner = false; save(); renderKeep(); toast(t('Напомню через неделю', 'I’ll remind you in a week')); },
   toggle: el => { const k = el.dataset.k; S.toggles[k] = !S.toggles[k]; save(); el.classList.toggle('on', S.toggles[k]); el.setAttribute('aria-checked', S.toggles[k]); toast(S.toggles[k] ? t('Котелок снова это помнит', 'Kotelok remembers this again') : t('Котелок это забыл', 'Kotelok forgot this'), { tone: S.toggles[k] ? 'g' : '' }); },
-  how: () => sheet(t('Как это устроено', 'How it works'), `<div data-body class="stack" style="gap:12px"><div class="howto">${[[t('Ты пишешь или выбираешь силы', 'You type or pick your energy'), t('Запрос уходит ИИ-сервису без имени и контактов', 'The request goes to the AI service without your name or contacts')], [t('Показываешь холодильник', 'You show your fridge'), t('Распознаём продукты и удаляем фото через 24 часа', 'We spot the food and delete the photo after 24 hours')], [t('Ставишь оценки', 'You rate dinners'), t('Хранятся в твоём профиле supa — удалить можно в любой момент', 'Kept in your supa profile. Delete them any time')], [t('Говоришь голосом', 'You speak'), t('Речь распознаёт система телефона', 'Your phone does the speech recognition')]].map(([a, b], i) => `<div class="s" data-s><span class="n">${i + 1}</span><span><b>${a}</b><small>${b}</small></span></div>`).join('')}</div><button class="btn full" data-a="ovclose" data-s>${t('Понятно', 'Got it')}</button></div>`, { kind: 'how' }),
+  how: () => sheet(t('Как это устроено', 'How it works'), `<div data-body class="stack" style="gap:12px"><div class="howto">${[[t('Ты пишешь или выбираешь силы', 'You type or pick your energy'), t('Запрос уходит ИИ-сервису без имени и контактов', 'The request goes to the AI service without your name or contacts')], [t('Показываешь холодильник', 'You show your fridge'), t('Распознаём продукты, фото не сохраняем', 'We spot the food and don’t keep the photo')], [t('Ставишь оценки', 'You rate dinners'), t('Хранятся на этом устройстве — удалить можно в любой момент', 'Kept on this device. Delete them any time')], [t('Говоришь голосом', 'You speak'), t('Речь распознаёт система телефона', 'Your phone does the speech recognition')]].map(([a, b], i) => `<div class="s" data-s><span class="n">${i + 1}</span><span><b>${a}</b><small>${b}</small></span></div>`).join('')}</div><button class="btn full" data-a="ovclose" data-s>${t('Понятно', 'Got it')}</button></div>`, { kind: 'how' }),
   aioff: () => alertBox(t('Выключить Котелка?', 'Turn off Kotelok?'), `<p>${t('Подбор останется — по базе рецептов, без ИИ. Фото и голос перестанут работать.', 'Picking stays, using the recipe base without AI. Photos and voice will stop working.')}</p><div class="stack"><button class="btn full" data-a="aioffyes">${t('Выключить', 'Turn off')}</button><button class="btn sec full" data-a="ovclose" autofocus>${t('Оставить', 'Keep it on')}</button></div>`),
   aioffyes: () => { S.aiOn = false; save(); closeAll(); renderKeep(); toast(t('Котелок выключен — подбор по базе', 'AI is off. Picking from the recipe base')); },
   aion: () => { S.aiOn = true; save(); renderKeep(); toast(t('Котелок снова с тобой', 'Kotelok is back'), { tone: 'g' }); },
@@ -2557,6 +2569,8 @@ const A = {
   plussheet: () => sheet(t('Добавить к запросу', 'Add to your request'), `<div data-body class="stack" style="gap:8px"><button class="opt" data-a="pickphoto" data-s><span class="lg" style="background:var(--sky)">${I.fridge}</span><span class="tx"><b>${t('Фото холодильника', 'Fridge photo')}</b><small>${S.plus.active ? t('Без лимита', 'Unlimited') : t('Осталось ', 'Left this week: ') + Math.max(0, S.photosMax - S.photosUsed) + t(' на этой неделе', '')}</small></span>›</button><button class="opt" data-a="picker" data-s><span class="lg" style="background:var(--leaf)">≡</span><span class="tx"><b>${t('Отметить продукты', 'Mark items')}</b><small>${t('Если камеры нет под рукой', 'If the camera isn’t handy')}</small></span>›</button><button class="opt" data-a="memory" data-s><span class="lg" style="background:var(--pink);color:#141414">✕</span><span class="tx"><b>${t('Не ем…', 'I skip…')}</b><small>${noEatSummary().join(', ') || t('Пока ничего', 'Nothing yet')}</small></span>›</button></div>`, { kind: 'plus' }),
   voice: () => voiceSheet(),
   voiceagain: el => { closeOv(el.closest('.ov'), true); setTimeout(voiceSheet, 280); },
+  cookask: () => cookAskSheet(),
+  cqsend: el => { const ov = el.closest('.ov'), v = ((ov.querySelector('#cq') || {}).value || '').trim(); if (!v) return; closeOv(ov, true); setTimeout(() => cookQuestion(v), 220); },
   voicesend: el => { try { RT.rec && RT.rec.abort(); } catch (e) {} const p = RT.vPhrase; closeOv(el.closest('.ov'), true); if (p) setTimeout(() => askText(p), 200); },
   msgmenu: el => { const m = findMsg(el.dataset.mid); sheet(t('Ответ Котелка', 'Kotelok’s answer'), `<div data-body class="stack" style="gap:8px"><button class="opt" data-a="copymsg" data-mid="${m.id}" data-s><span class="lg" style="background:var(--sky)">⧉</span><span class="tx"><b>${t('Скопировать', 'Copy')}</b></span></button><button class="opt" data-a="report" data-s><span class="lg" style="background:var(--orange)">!</span><span class="tx"><b>${t('Пожаловаться на ответ', 'Report this answer')}</b><small>${t('Опасный совет, неправда, не то, что просил', 'Unsafe advice, untrue, not what I asked')}</small></span>›</button></div>`, { kind: 'msg' }); },
   copymsg: el => { const m = findMsg(el.dataset.mid), x = tt(m.text || '').replace(/<[^>]+>/g, ''); closeAll(); try { navigator.clipboard.writeText(x).then(() => toast(t('Скопировано', 'Copied'), { tone: 'g' }), () => toast(t('Не вышло скопировать', 'Couldn’t copy'))); } catch (e) { toast(t('Не вышло скопировать', 'Couldn’t copy')); } },
@@ -2635,6 +2649,11 @@ const A = {
   },
 };
 function saveOnbName() { const i = $('#oname'); if (i) { S.name = i.value.trim(); save(); } }
+function cookAskSheet() {
+  const ov = sheet(t('Спросить Котелка', 'Ask Kotelok'), `<div class="stack" data-s><input class="input" id="cq" placeholder="${t('Например: чем заменить сметану?', 'E.g. what can replace sour cream?')}" maxlength="200" autocomplete="off" enterkeyhint="send"><button class="btn full" data-a="cqsend">${t('Спросить', 'Ask')}</button><span class="note">${t('Таймер продолжает идти.', 'The timer keeps going.')}</span></div>`, { kind: 'ask' });
+  const inp = ov.querySelector('#cq');
+  if (inp) { setTimeout(() => inp.focus(), 250); inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); A.cqsend(ov.querySelector('[data-a="cqsend"]')); } }); }
+}
 async function cookQuestion(q) {
   const ov = sheet(t('По ходу готовки', 'While cooking'), `<div data-body class="stack" style="gap:12px"><div class="me" style="align-self:flex-end">${esc(q)}</div><div class="typing">${botAv()}<i></i><i></i><i></i><span>${t('Котелок думает…', 'Kotelok is thinking…')}</span></div></div>`, { kind: 'ask' });
   if (needNet()) return closeOv(ov, true);

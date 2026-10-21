@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>supa — политика конфиденциальности</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=Sofia+Sans+Extra+Condensed:wght@800&display=swap">
+<style>
+:root{
+  --bg:#EFEFED; --card:#FFFFFF; --ink:#141414; --ash:#5E5E5C; --line:#D6D6D3; --lemon:#F5D33B;
+  --f-body:"Geist","Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-disp:"Sofia Sans Extra Condensed","Arial Narrow",sans-serif;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){ :root{ --bg:#121211; --card:#1D1D1B; --ink:#F3F1EC; --ash:#C3C2BD; --line:#363633; color-scheme:dark } }
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.6 var(--f-body);-webkit-font-smoothing:antialiased;
+  padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}
+main{max-width:680px;margin:0 auto;padding:40px 20px 64px}
+a{color:inherit;text-decoration-thickness:1px;text-underline-offset:3px}
+a:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:4px}
+.back{display:inline-block;font-size:15px;color:var(--ash);margin-bottom:28px}
+h1{font:800 clamp(48px,11vw,84px)/.9 var(--f-disp);letter-spacing:-.01em;margin:0 0 14px;text-transform:lowercase}
+.date{color:var(--ash);font-size:15px;margin:0 0 32px}
+.short{background:var(--lemon);color:#141414;border-radius:28px;padding:22px 24px;margin:0 0 40px}
+.short p{margin:0 0 10px;font-weight:500}
+.short ul{margin:0;padding-left:20px}
+.short li{margin:4px 0}
+h2{font:600 21px/1.3 var(--f-body);margin:36px 0 10px}
+p{margin:0 0 12px}
+ul{margin:0 0 12px;padding-left:22px}
+li{margin:4px 0}
+.note{color:var(--ash);font-size:15px}
+footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--line);color:var(--ash);font-size:15px}
+</style>
+</head>
+<body>
+<main>
+  <a class="back" href="./">‹ Вернуться в supa</a>
+  <h1>Политика конфиденциальности</h1>
+  <p class="date">Действует с 21 октября 2026 года · закрытая бета-версия</p>
+
+  <section class="short" aria-label="Коротко">
+    <p>Коротко</p>
+    <ul>
+      <li>Почти всё, что ты рассказываешь supa, хранится только на твоём телефоне или компьютере.</li>
+      <li>Запросы и фото холодильника на время обработки уходят в ИИ Яндекса (Yandex Cloud, серверы в России).</li>
+      <li>Мы не сохраняем запросы и фото, не продаём данные и не показываем рекламу.</li>
+      <li>Удалить всё можно в профиле одной кнопкой.</li>
+    </ul>
+  </section>
+
+  <h2>Что хранится на твоём устройстве</h2>
+  <p>Чтобы подбирать ужины, supa запоминает: имя (если ты его указал), сколько обычно сил вечером, что ты не ешь, какие продукты есть дома, историю чата, сохранённые рецепты и оценки «вкусно / не моё».</p>
+  <p>Эти данные лежат в памяти браузера на твоём устройстве. На наш сервер они не отправляются и хранятся там, пока ты их не удалишь.</p>
+
+  <h2>Что уходит в ИИ и зачем</h2>
+  <p>Когда ты просишь подобрать ужин или задаёшь вопрос, supa отправляет на обработку:</p>
+  <ul>
+    <li>текст запроса и несколько твоих предыдущих сообщений в чате;</li>
+    <li>какие продукты есть дома, что ты не ешь и какие рецепты понравились;</li>
+    <li>список подходящих рецептов из базы supa, из которых ИИ выбирает;</li>
+    <li>во время готовки — текст рецепта и твой вопрос;</li>
+    <li>фото холодильника, если ты его сделал, — в уменьшенном виде.</li>
+  </ul>
+  <p>Запрос проходит через нашу облачную функцию в Yandex Cloud и обрабатывается моделями Yandex AI Studio. Всё это — на серверах в России. Имя и контакты мы не передаём.</p>
+  <p>Мы не сохраняем тексты запросов и фото: они нужны только на время ответа. В запросах к Яндексу мы отключаем логирование, чтобы данные не использовались для обучения моделей.</p>
+
+  <h2>Голос</h2>
+  <p>Речь распознаёт твой браузер или система телефона, supa получает уже готовый текст. В зависимости от устройства распознавание может выполняться на серверах Apple или Google — по их правилам.</p>
+
+  <h2>Технические данные</h2>
+  <p>Когда приложение обращается к серверу, обрабатываются IP-адрес и время запроса. Наш сервер использует их только чтобы защититься от перегрузки и злоупотреблений и держит в памяти не дольше нескольких минут.</p>
+  <p>Сайт размещён на GitHub Pages, а шрифты загружаются с Google Fonts: эти сервисы получают обычные технические данные о запросе, например IP-адрес.</p>
+  <p>Мы не используем рекламу, рекламные идентификаторы, геолокацию и сторонние счётчики посещений.</p>
+
+  <h2>Как отключить ИИ и удалить данные</h2>
+  <ul>
+    <li>Отключить ИИ: «Профиль и данные ИИ» → кнопка отключения. Подбор по базе продолжит работать без ИИ.</li>
+    <li>Удалить всё: «Профиль и данные ИИ» → «Удалить всё». Данные стираются с устройства сразу.</li>
+    <li>Ещё способ — очистить данные сайта в настройках браузера.</li>
+  </ul>
+
+  <h2>Подписка</h2>
+  <p>В бета-версии оплата не работает, деньги не списываются. Экраны подписки показаны для теста. Перед запуском оплаты эта политика будет обновлена.</p>
+
+  <h2>Связь</h2>
+  <p>Вопросы о данных — на почту <a href="mailto:hello@supa.app">hello@supa.app</a>.</p>
+  <p class="note">Если мы изменим эту политику, новая версия появится на этой странице с новой датой.</p>
+
+  <footer>© supa</footer>
+</main>
+</body>
+</html>
