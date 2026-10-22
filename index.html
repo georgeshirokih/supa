@@ -40,6 +40,26 @@
 .pflag.t{background:#141414;color:#fff}
 .pflag.ok{background:#D6EDD4;color:#1E5B24}
 .plarch{display:flex;flex-wrap:wrap;gap:8px}
+.psess{display:grid;grid-template-columns:64px 1fr;gap:12px;background:#fff;border-radius:22px;padding:12px}
+.psess .pdate{background:#F5D33B;align-self:start;min-height:84px}
+.psess.today{box-shadow:inset 0 0 0 2px #141414}
+.pdish.sm{grid-template-columns:52px 1fr}
+.pdish.sm img{width:52px;height:52px;border-radius:12px}
+.pdish.sm b{font-size:15px}
+.psteps summary{cursor:pointer;font-weight:600;font-size:14px;list-style:none;padding:8px 0;border-top:1px solid #EEECE6}
+.psteps summary::-webkit-details-marker{display:none}
+.psteps summary::after{content:" ↓";color:#8A8A87}
+.psteps[open] summary::after{content:" ↑"}
+.pstep{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;border:0;background:transparent;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:6px 2px;border-radius:10px;font-size:15px;line-height:1.4}
+.pstep:hover{background:#F6F5F1}
+.pstep:focus-visible{outline:2px solid #141414;outline-offset:1px}
+.pstep .cb{width:20px;height:20px;border-radius:6px;box-shadow:inset 0 0 0 2px #C9C6BE;margin-top:1px}
+.pstep.on .cb{background:#141414;box-shadow:none;position:relative}
+.pstep.on .cb::after{content:"";position:absolute;left:6px;top:2px;width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.pstep.on span:last-child{color:#8A8A87;text-decoration:line-through}
+.pstore{font-weight:500}
+.pstore.freezer{color:#2F6FB5}
+.pstore.fresh{color:#1E5B24}
 @media (min-width:1024px){.pldays{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 .shoplist{display:flex;flex-direction:column;gap:2px}
 .shoplist .it{display:flex;align-items:center;gap:10px;padding:8px 2px;border-bottom:1px solid #EEECE6}
@@ -1281,7 +1301,7 @@ function pl(n, ru, en) {
   return (m === 1 && h !== 11) ? ru[0] : (m >= 2 && m <= 4 && (h < 10 || h >= 20)) ? ru[1] : ru[2];
 }
 const WORDS = {
-  dinner: [['ужин','ужина','ужинов'], ['dinner','dinners']], person: [['человека','человек','человек'], ['person','people']], product: [['продукт','продукта','продуктов'], ['item','items']],
+  dinner: [['ужин','ужина','ужинов'], ['dinner','dinners']], person: [['человека','человек','человек'], ['person','people']], dish: [['блюдо','блюда','блюд'], ['dish','dishes']], portion: [['порция','порции','порций'], ['portion','portions']], product: [['продукт','продукта','продуктов'], ['item','items']],
   recipe: [['рецепт','рецепта','рецептов'], ['recipe','recipes']], minute: [['минута','минуты','минут'], ['minute','minutes']],
   time: [['раз','раза','раз'], ['time','times']], photo: [['фото','фото','фото'], ['photo','photos']],
 };
@@ -1717,7 +1737,7 @@ const prodDots = (list = S.products) => `<span class="row" style="gap:3px">${lis
 function composer(ph) {
   const off = !online();
   return `<div class="composer"><button class="plus" data-a="plussheet" aria-label="${t('Фото, «не ем» и память', 'Photo, food rules and memory')}">${I.plus}</button>
-  <label class="field"><span class="sr">${t('Сообщение Котелку', 'Message to Kotelok')}</span><textarea id="comp" rows="1" placeholder="${esc(ph || (S.chat.length ? t('Спроси Котелка: «что-то с курицей, но без духовки»', 'Ask Kotelok: “something with chicken, no oven”') : t('«Меню на неделю на двоих»', '“Weekly menu for two”')))}" ${off ? 'disabled' : ''}></textarea><button class="send" data-a="send" aria-label="${t('Отправить', 'Send')}" disabled>${I.up}</button></label>
+  <label class="field"><span class="sr">${t('Сообщение Котелку', 'Message to Kotelok')}</span><textarea id="comp" rows="1" placeholder="${esc(ph || (S.chat.length ? t('Спроси Котелка: «что-то с курицей, но без духовки»', 'Ask Kotelok: “something with chicken, no oven”') : t('«Рацион на неделю на двоих»', '“Weekly meal plan for two”')))}" ${off ? 'disabled' : ''}></textarea><button class="send" data-a="send" aria-label="${t('Отправить', 'Send')}" disabled>${I.up}</button></label>
   <button class="ball big" data-a="voice" aria-label="${t('Сказать голосом', 'Speak')}"></button></div>`;
 }
 const installBanner = () => `<div class="banner" data-s><span class="d"></span><span class="t">${t('Поставь supa на экран «Домой»', 'Add supa to your Home Screen')}</span><button class="b" data-a="install">${t('Как', 'How')}</button><button class="x" data-a="hidebanner" aria-label="${t('Скрыть', 'Hide')}">${I.x}</button></div>`;
@@ -1770,7 +1790,7 @@ function chatStart() {
   return `<p class="prompt" data-a="focuscomp" data-s>${t('Что хочется на ужин?', 'What do you feel like for dinner?')}</p>
   <div class="row" data-s style="justify-content:space-between;flex-wrap:wrap"><span class="mono">${t('или выбери, сколько сил', 'or pick your energy level')}</span>${aiCounter()}</div>
   <div class="energy" data-s>${ENERGY.map(e => `<button data-a="energy" data-k="${e.k}"><span class="th"><img src="${IMG(e.img)}" alt=""></span><span style="flex:1;min-width:0"><b>${tt(e.t)}</b><small>${tt(e.s)}</small></span>${S.energy === e.k ? `<span class="tag lem">${t('обычно', 'usual')}</span>` : ''}</button>`).join('')}</div>
-  <button class="weekcta" data-a="${planActive(S.plan) ? 'weekopen' : 'week'}" data-s><span class="wkdots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span style="flex:1;min-width:0"><b>${planActive(S.plan) ? t('Твоё меню на неделю', 'Your weekly menu') : t('Меню на неделю', 'Weekly menu')}</b><small>${planActive(S.plan) ? planRange(S.plan) + ' · ' + t('расписание и список покупок', 'schedule and shopping list') : t('7 ужинов по дням — на всю семью', '7 dinners by day, for everyone')}</small></span><span class="tag lem">${t('новое', 'new')}</span></button>
+  <button class="weekcta" data-a="${planActive(S.plan) ? 'weekopen' : 'week'}" data-s><span class="wkdots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span style="flex:1;min-width:0"><b>${planActive(S.plan) ? t('Мой рацион на неделю', 'My weekly meal plan') : t('Рацион на неделю', 'Weekly meal plan')}</b><small>${planActive(S.plan) ? planRange(S.plan) + ' · ' + t('расписание и список покупок', 'schedule and shopping list') : t('Готовишь 1–2 дня — ешь всю неделю', 'Cook 1–2 days, eat all week')}</small></span><span class="tag lem">${t('новое', 'new')}</span></button>
   <div class="row wrap" data-s style="gap:8px">${ne.length ? `<button class="chip" data-a="memory">${t('Не ем: ', 'Skip: ')}${esc(ne.slice(0, 2).join(', '))}${ne.length > 2 ? ' +' + (ne.length - 2) : ''}</button>` : `<button class="chip" data-a="memory">${I.plusS} ${t('Что не ешь?', 'Anything you skip?')}</button>`}
   ${S.products.length ? `<button class="chip" data-a="go" data-r="fridge">${prodDots()} ${t('Дома: ', 'At home: ')}${nw(S.products.length, 'product')}</button>` : `<button class="chip" data-a="picker">${I.plusS} ${t('Что есть дома?', 'What’s at home?')}</button>`}</div>`;
 }
@@ -1923,23 +1943,51 @@ VIEWS.recipe = () => {
       : `<div class="typing" data-s>${botAv()}<i></i><i></i><i></i><span>${t('Котелок пишет шаги рецепта…', 'Kotelok is writing the steps…')}</span></div>`)
     : '';
   const fix = h => h && h.replace('<ol class="steps" data-s></ol>', wait).replace(/data-a="startcook"/g, r.steps.length ? 'data-a="startcook"' : 'disabled data-a="noop"');
-  v.body = fix(v.body) + note; if (v.panel) v.panel = fix(v.panel);
+  const prepInfo = r.prep ? `<div class="card stack" data-s style="gap:6px"><span class="mono">${t('Заготовка', 'Meal prep')}</span><b style="font-weight:600">${nw(r.prep.portions, 'portion')}</b>${r.prep.keeps ? `<span>${t('Хранение: ', 'Keeps: ')}${esc(r.prep.keeps)}</span>` : ''}${r.prep.reheat ? `<span>${t('Разогрев: ', 'Reheat: ')}${esc(r.prep.reheat)}</span>` : ''}</div>` : '';
+  v.body = fix(v.body) + prepInfo + note; if (v.panel) v.panel = fix(v.panel);
   return v;
 };
 
+function prepPlanBody(plan, plans) {
+  const today = new Date().setHours(0, 0, 0, 0), isCur = plan === plans[0];
+  let body = `<div class="plhead" data-s><span class="mono">${isCur && planActive(plan) ? t('Текущая неделя', 'This week') : t('Архив', 'Archive')} · ${planRange(plan)}</span><h1 class="h-disp" style="font-size:52px;margin:0">${t('Рацион на неделю', 'Weekly meal plan')}</h1><span class="meta">${t('на ', 'for ') + nw(plan.people, 'person')} · ${nw(plan.dishIds.length, 'dish')} · ${plan.cookDays === 2 ? t('готовка 2 дня', '2 cooking days') : t('готовка 1 день', '1 cooking day')} · ${tt(PREP_E[plan.energy] || PREP_E.mid)}</span></div>`;
+  if (plan.note) body += `<div class="tip" data-s>${botAv()}<span>${esc(plan.note)}</span></div>`;
+  body += `<div class="plactions" data-s><button class="btn s dark" data-a="weekshop" ${dp({ pid: plan.id })}>${t('Что купить', 'Shopping list')}</button><button class="btn s mist" data-a="plannew">${t('Новый рацион', 'New plan')}</button>${isCur ? '' : `<button class="btn s mist" data-a="go" data-r="plan" data-replace="1">${t('К текущему', 'Back to current')}</button>`}</div>`;
+  body += `<span class="mono" data-s>${t('Дни готовки', 'Cooking days')}</span><div class="stack" data-s style="gap:10px">${plan.sessions.map((s, si) => {
+    const isT = s.ts === today;
+    const dishes = s.ids.map(id => { const r = RECIPES[id]; if (!r) return ''; return `<button class="pdish sm" data-a="go" data-r="recipe" ${dp({ id, from: 'plan' })}><img src="${cover(r)}" alt="" loading="lazy"><span><b>${rTitle(r)}</b><small>${r.prep ? nw(r.prep.portions, 'portion') : ''}${r.prep && r.prep.keeps ? ' · ' + esc(r.prep.keeps) : ''}</small></span></button>`; }).join('');
+    const steps = (s.steps || []).map((st, i) => { const k = si + '-' + i, on = plan.sdone && plan.sdone[k]; return `<button class="pstep ${on ? 'on' : ''}" data-a="pstep" ${dp({ pid: plan.id, k })} aria-pressed="${!!on}"><span class="cb" aria-hidden="true"></span><span>${esc(st)}</span></button>`; }).join('');
+    const doneN = (s.steps || []).filter((_, i) => plan.sdone && plan.sdone[si + '-' + i]).length;
+    return `<div class="psess ${isT ? 'today' : ''}"><div class="pdate"><b>${tt(s.day)}</b><span class="num">${s.num}</span><small>${tt(s.mon)}</small></div><div class="stack" style="gap:10px;min-width:0"><div><span class="pflag ${isT ? 't' : ''}">${isT ? t('готовим сегодня', 'cooking today') : t('день готовки', 'cooking day')}</span><b style="display:block;font-weight:600;font-size:17px">${t('Около ', 'About ') + fmtMin(s.time)} · ${nw(s.ids.length, 'dish')}</b></div>${dishes}${steps ? `<details class="psteps" ${isT ? 'open' : ''}><summary>${t('Порядок готовки', 'Cooking order')} · ${doneN}/${s.steps.length}</summary><div class="stack" style="gap:4px;margin-top:8px">${steps}</div></details>` : ''}</div></div>`;
+  }).join('')}</div>`;
+  const SL = { fresh: ['свежее, в день готовки', 'fresh, on cooking day'], fridge: ['из холодильника', 'from the fridge'], freezer: ['из морозилки', 'from the freezer'] };
+  body += `<span class="mono" data-s>${t('Что едим по дням', 'What we eat each day')}</span><div class="pldays" data-s>${plan.days.map((d, i) => {
+    const r = RECIPES[d.id]; if (!r) return '';
+    const ts = d.ts || plan.at, isT = ts === today, past = ts < today;
+    const done = (S.history || []).some(h => h.id === d.id && h.at && new Date(h.at).setHours(0, 0, 0, 0) === ts);
+    const nextFrozen = plan.days[i + 1] && plan.days[i + 1].store === 'freezer';
+    const hint = d.store === 'freezer' ? t('достань из морозилки накануне вечером', 'move from the freezer the evening before') : d.store === 'fridge' && r.prep && r.prep.reheat ? esc(r.prep.reheat) : '';
+    const flag = isT ? `<span class="pflag t">${t('сегодня', 'today')}</span>` : '';
+    return `<div class="pday ${isT ? 'today' : ''} ${past ? 'past' : ''}"><div class="pdate"><b>${tt(d.day)}</b><span class="num">${d.num}</span><small>${tt(d.mon)}</small></div><button class="pdish" data-a="go" data-r="recipe" ${dp({ id: d.id, from: 'plan' })}><img src="${cover(r)}" alt="" loading="lazy"><span style="display:flex;flex-direction:column">${flag}<b>${rTitle(r)}</b><small><span class="pstore ${d.store}">${tt(SL[d.store] || SL.fridge)}</span>${hint ? ' · ' + hint : ''}${isT && nextFrozen ? ' · ' + t('вечером достань завтрашний ужин из морозилки', 'tonight, move tomorrow’s dinner to the fridge') : ''}</small></span></button></div>`;
+  }).join('')}</div>`;
+  if (plans.length > 1) body += `<div class="stack" data-s style="gap:10px"><span class="mono">${t('Прошлые рационы', 'Earlier plans')}</span><div class="plarch">${plans.map(p => `<button class="chip ${p.id === plan.id ? 'on' : ''}" data-a="go" data-r="plan" ${dp({ pid: p.id })} data-replace="1">${planRange(p)}${p.people ? ' · ' + t('на ', 'for ') + p.people : ''}</button>`).join('')}</div></div>`;
+  body += `<button class="lnk" data-a="plandel" ${dp({ pid: plan.id })} data-s style="align-self:flex-start;font-size:14px;color:#8A8A87">${t('Удалить этот рацион', 'Delete this plan')}</button>`;
+  return body;
+}
 VIEWS.plan = () => {
   const plans = S.plans || [], plan = R.p.pid ? findPlan(R.p.pid) : plans[0];
   const today = new Date().setHours(0, 0, 0, 0);
   let body = '';
   if (RT.planGen) {
-    body += `<div class="card pad-l stack" data-s style="gap:12px"><span class="mono">${t('Меню на неделю', 'Weekly menu')}</span><div class="typing">${botAv()}<i></i><i></i><i></i><span>${t('Котелок составляет меню на 7 дней… обычно до минуты', 'Kotelok is planning 7 dinners… usually under a minute')}</span></div></div>`;
+    body += `<div class="card pad-l stack" data-s style="gap:12px"><span class="mono">${t('Меню на неделю', 'Weekly menu')}</span><div class="typing">${botAv()}<i></i><i></i><i></i><span>${t('Котелок подбирает блюда, считает порции и порядок готовки… обычно до минуты', 'Kotelok is picking dishes, portions and the cooking order… usually under a minute')}</span></div></div>`;
     return { title: t('Мой рацион', 'My meal plan'), body };
   }
   if (!plan) {
     const dot = '<i style="width:14px;height:14px"></i>';
-    body += `<div class="card pad-l stack empty" data-s style="align-items:flex-start;gap:14px"><div class="wkdots" aria-hidden="true" style="grid-template-columns:repeat(7,14px);gap:6px">${dot.repeat(7)}</div><h2 class="h-disp" style="font-size:44px">${t('Меню на неделю', 'Weekly menu')}</h2><p style="margin:0">${t('Котелок составит 7 ужинов по дням и датам на нужное число людей и сам соберёт список покупок. Меню сохранится здесь.', 'Kotelok plans 7 dinners by day and date for your household and builds the shopping list. The menu is kept here.')}</p><button class="btn" data-a="plannew">${t('Составить меню', 'Plan the week')}</button></div>`;
+    body += `<div class="card pad-l stack empty" data-s style="align-items:flex-start;gap:14px"><div class="wkdots" aria-hidden="true" style="grid-template-columns:repeat(7,14px);gap:6px">${dot.repeat(7)}</div><h2 class="h-disp" style="font-size:44px">${t('Рацион на неделю', 'Weekly meal plan')}</h2><p style="margin:0">${t('Готовишь 1–2 дня — ешь всю неделю. Котелок учтёт твои силы, продукты дома и что готов докупить, посчитает порции на всех и разложит ужины по дням.', 'Cook for 1–2 days, eat all week. Kotelok considers your energy, what’s at home and what you’d buy, counts portions for everyone and lays dinners out by day.')}</p><button class="btn" data-a="plannew">${t('Составить рацион', 'Make a plan')}</button></div>`;
     return { title: t('Мой рацион', 'My meal plan'), body };
   }
+  if (plan.type === 'prep') return { title: t('Мой рацион', 'My meal plan'), body: prepPlanBody(plan, plans) };
   const isCur = plan === plans[0];
   body += `<div class="plhead" data-s><span class="mono">${isCur && planActive(plan) ? t('Текущая неделя', 'This week') : t('Архив', 'Archive')} · ${planRange(plan)}</span><h1 class="h-disp" style="font-size:52px;margin:0">${t('Меню на неделю', 'Weekly menu')}</h1><span class="meta">${plan.people ? t('на ', 'for ') + nw(plan.people, 'person') + ' · ' : ''}${nw(plan.days.length, 'dinner')} · ${plan.ai ? t('придумал Котелок', 'by Kotelok') : t('из базы рецептов', 'from the recipe base')}</span></div>`;
   if (plan.note) body += `<div class="tip" data-s>${botAv()}<span>${esc(plan.note)}</span></div>`;
@@ -2357,11 +2405,11 @@ function askText(q) {
   ensureChat();
   addMsg({ t: 'q', text: cap1(q) });
   const pq = parseQuery(q); S.query = pq; S.lim = defaultLim(pq); S.removed = [];
-  if (!S.aiOn) return WEEK_RE.test(q) ? thinking(() => showWeek(baseWeek(), parsePeople(q) || 0, null, false), 700) : thinking(baseReply, 700);
+  if (!S.aiOn) return WEEK_RE.test(q) ? thinking(() => askPeople(q), 500) : thinking(baseReply, 700);
   const limited = !aiAllowed();
   if (S.failAI) { S.failAI = false; save(); return thinking(() => addMsg({ t: 'bot', text: both(() => t('Котелок не ответил — сервис думал слишком долго. Подбор не потрачен.', 'Kotelok didn’t answer, the service took too long. This pick wasn’t counted.')), buttons: [{ l: ['Повторить', 'Retry'], a: 'retryai', cls: 's dark', p: { q } }, { l: ['Искать по базе', 'Search recipes'], a: 'basesearch' }] }), 2000); }
   if (S.emptyNext) { S.emptyNext = false; save(); return thinking(() => noneMsg(q)); }
-  if (WEEK_RE.test(q)) { const n = parsePeople(q); return n ? runWeek(q, n) : askPeople(q); }
+  if (WEEK_RE.test(q)) return askPeople(q);
   runAI(q, pq, limited);
 }
 async function runAI(q, pq, limited) {
@@ -2379,7 +2427,7 @@ async function runAI(q, pq, limited) {
     const c = esc(out.note);
     return addMsg({ t: 'bot', ai: 1, text: [c, c], buttons: ENERGY.map(e => ({ l: e.t, a: 'energy', p: { k: e.k } })) });
   }
-  if (out.mode === 'week') return out.people ? runWeek(q, out.people) : askPeople(q);
+  if (out.mode === 'week') return askPeople(q + (out.people ? ' на ' + out.people + ' человек' : ''));
   if (limited) return limitReply();
   if (!out.ids.length) return aiFailMsg(q);
   useAI();
@@ -2389,8 +2437,9 @@ async function runAI(q, pq, limited) {
   addMsg({ t: 'bot', ai: 1, text: txt ? [txt, txt] : def, res: out.ids.slice(0, 5), q: pq, lim: S.lim, foot: ['Придумал ИИ · проверяй время и температуру', 'AI-made · check times and temperatures'] });
 }
 function askPeople(q) {
-  addMsg({ t: 'bot', ai: 1, text: both(() => t('Соберу меню ужинов на 7 дней. На сколько человек готовим?', 'I’ll plan dinners for 7 days. How many people are eating?')),
-    buttons: [1, 2, 3, 4, 5].map(n => ({ l: [n === 5 ? '5+' : String(n), n === 5 ? '5+' : String(n)], a: 'weekppl', cls: n === 2 ? 's dark' : 's mist', p: { n, q } })) });
+  const n = parsePeople(q || '');
+  addMsg({ t: 'bot', ai: 1, text: both(() => t('Соберу рацион на неделю: готовишь 1–2 дня — ешь всю неделю. Учту силы, продукты дома и что готов докупить, порции посчитаю на всех.', 'Let’s make a weekly plan: cook for 1–2 days, eat all week. I’ll consider your energy, what’s at home and what you’d buy, with portions for everyone.')),
+    buttons: [{ l: ['Настроить рацион', 'Set up the plan'], a: 'plannew', cls: 's dark', p: n ? { n } : {} }] });
 }
 async function buildWeek(q, people) {
   if (!S.aiOn) return { ids: baseWeek(), note: null, ai: false };
@@ -2441,20 +2490,69 @@ function showWeek(ids, people, note, ai, wish) {
     buttons: [{ l: ['Открыть в «Моём рационе»', 'Open in My meal plan'], a: 'go', cls: 's mist', p: {}, r: 'plan' }],
     foot: ai ? ['Придумал ИИ · проверяй время и температуру', 'AI-made · check times and temperatures'] : ['Из базы рецептов supa', 'From the supa recipe base'] });
 }
-function newPlanSheet() {
-  const last = (S.plans && S.plans[0] && S.plans[0].people) || 2;
-  const ov = sheet(t('Новое меню на неделю', 'New weekly menu'), `<div class="stack" data-s style="gap:14px"><span class="mono">${t('На сколько человек', 'How many people')}</span><div class="row wrap" style="gap:8px">${[1, 2, 3, 4, 5, 6].map(n => `<button class="chip ${n === last ? 'on' : ''}" data-a="pplpick" data-n="${n}" aria-pressed="${n === last}">${n === 6 ? '6+' : n}</button>`).join('')}</div><span class="mono">${t('Пожелания — необязательно', 'Wishes, optional')}</span><input class="input" id="wish" maxlength="200" placeholder="${t('Например: побольше супов, без рыбы, бюджетно', 'E.g. more soups, no fish, on a budget')}" autocomplete="off"><button class="btn full" data-a="plango">${S.aiOn ? t('Составить меню', 'Plan the week') : t('Собрать из базы рецептов', 'Build from the recipe base')}</button><span class="note">${S.aiOn ? t('Составление меню тратит одну подборку с ИИ.', 'Planning a week uses one AI pick.') : t('ИИ выключен — соберу неделю из проверенных рецептов.', 'AI is off, so I’ll use tested recipes.')}</span></div>`, { kind: 'ask' });
-  ov._ppl = last;
+const PREP_E = { low: ['мало сил · до 2 ч', 'low energy · up to 2 h'], mid: ['норм · до 3 ч', 'normal · up to 3 h'], high: ['много сил · до 4 ч', 'lots of energy · up to 4 h'] };
+const PREP_B = { none: ['ничего не докупать', 'buy nothing'], little: ['немного докупить', 'buy a little'], all: ['куплю всё нужное', 'buy whatever is needed'] };
+const fmtMin = m => { m = Math.round(m || 0); const h = Math.floor(m / 60), r = m % 60; return S.lang === 'en' ? (h ? h + ' h' : '') + (h && r ? ' ' : '') + (r || !h ? r + ' min' : '') : (h ? h + ' ч' : '') + (h && r ? ' ' : '') + (r || !h ? r + ' мин' : ''); };
+function newPlanSheet(o) {
+  o = o || {};
+  const P0 = Object.assign({ people: 2, cookDays: 1, energy: 'mid', buy: 'little', canBuy: '', wish: '' }, S.prepPrefs || {}, o.n ? { people: o.n } : {});
+  const grp = (g, items, cur) => `<div class="row wrap" style="gap:8px">${items.map(([v, l]) => `<button class="chip ${String(v) === String(cur) ? 'on' : ''}" data-a="optpick" data-g="${g}" data-v="${v}" aria-pressed="${String(v) === String(cur)}">${l}</button>`).join('')}</div>`;
+  const prods = S.products.slice(0, 14).map(k => `<span class="chip" style="pointer-events:none"><span class="pd" style="background:${ingColor(k)};width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px"></span>${esc(ingName(k))}</span>`).join('');
+  const ov = sheet(t('Рацион на неделю', 'Weekly meal plan'), `<div class="stack" data-s style="gap:14px">
+    <p class="note" style="margin:0">${t('Готовишь 1–2 дня — ешь всю неделю. Котелок подберёт блюда, порции и порядок готовки.', 'Cook for 1–2 days, eat all week. Kotelok picks dishes, portions and the cooking order.')}</p>
+    <span class="mono">${t('Сколько человек едят', 'How many people')}</span>${grp('people', [1, 2, 3, 4, 5, 6].map(n => [n, n === 6 ? '6+' : n]), P0.people)}
+    <span class="mono">${t('Сколько дней готов готовить', 'Cooking days')}</span>${grp('cookDays', [[1, t('1 день', '1 day')], [2, t('2 дня', '2 days')]], P0.cookDays)}
+    <span class="mono">${t('Силы на день готовки', 'Energy on cooking day')}</span>${grp('energy', [['low', t('Мало · до 2 ч', 'Low · up to 2 h')], ['mid', t('Норм · до 3 ч', 'Normal · up to 3 h')], ['high', t('Много · до 4 ч', 'Lots · up to 4 h')]], P0.energy)}
+    <span class="mono">${t('Дома есть', 'At home')}</span>${S.products.length ? `<div class="row wrap" style="gap:6px">${prods}${S.products.length > 14 ? `<span class="chip" style="pointer-events:none">+${S.products.length - 14}</span>` : ''}</div>` : `<p class="note" style="margin:0">${t('Пока ничего не отмечено — учту только базовые запасы: масло, соль, специи.', 'Nothing marked yet, so I’ll count only staples: oil, salt, spices.')}</p>`}<button class="lnk" data-a="planfridge" style="align-self:flex-start;font-size:14px">${t('Отметить продукты →', 'Mark food →')}</button>
+    <span class="mono">${t('Докупать', 'Shopping')}</span>${grp('buy', [['none', t('Ничего', 'Nothing')], ['little', t('Немного', 'A little')], ['all', t('Всё нужное', 'Whatever is needed')]], P0.buy)}
+    <input class="input" id="canbuy" maxlength="200" value="${esc(P0.canBuy)}" placeholder="${t('Что готов купить или бюджет: курицу, овощи, до 2000 ₽', 'What you’d buy or budget: chicken, veg, up to $30')}" autocomplete="off">
+    <input class="input" id="wish" maxlength="200" value="${esc(P0.wish)}" placeholder="${t('Пожелания: побольше супов, без острого', 'Wishes: more soups, nothing spicy')}" autocomplete="off">
+    <button class="btn full" data-a="plango">${S.aiOn ? t('Составить рацион', 'Make the plan') : t('Собрать неделю из базы рецептов', 'Build a week from the recipe base')}</button>
+    <span class="note">${S.aiOn ? t('Тратит одну подборку с ИИ. Составление занимает до минуты.', 'Uses one AI pick and takes up to a minute.') : t('ИИ выключен: заготовки составляет только Котелок с ИИ, поэтому соберу обычную неделю из базы.', 'AI is off. Meal prep needs Kotelok’s AI, so I’ll build a regular week from the base.')}</span>
+  </div>`, { kind: 'ask' });
+  ov._v = { people: P0.people, cookDays: P0.cookDays, energy: P0.energy, buy: P0.buy };
 }
-async function planGenerate(people, wish) {
-  if (S.aiOn && !aiAllowed()) { go('plan'); return toast(t('На сегодня подборки с ИИ закончились — завтра продолжим', 'No AI picks left today. Back tomorrow'), { tone: 'r', ms: 5000 }); }
+async function planGenerate(prefs) {
+  S.prepPrefs = prefs; save();
+  if (!S.aiOn) { const ids = baseWeek(); savePlan(ids, prefs.people, null, false, prefs.wish); go('plan', {}); return; }
+  if (!aiAllowed()) { go('plan'); return toast(t('На сегодня подборки с ИИ закончились — завтра продолжим', 'No AI picks left today. Back tomorrow'), { tone: 'r', ms: 5000 }); }
   RT.planGen = true; go('plan', {});
-  const q = (wish ? wish + '. ' : '') + t('Меню ужинов на неделю', 'Weekly dinner menu');
-  const w = await buildWeek(q, people);
+  const days = weekDays();
+  let res = null;
+  try {
+    const p = suggestPayload(prefs.wish || '', false);
+    res = await api('prep', { people: prefs.people, cookDays: prefs.cookDays, energy: prefs.energy, buy: prefs.buy, canBuy: prefs.canBuy, text: prefs.wish, days: days.map(d => tt(d.day) + ' ' + tt(d.date)), products: p.products, avoid: p.avoid }, 64000);
+  } catch (e) { res = null; }
   RT.planGen = false;
-  savePlan(w.ids, people, w.note, w.ai, wish);
-  if (w.failed) toast(t('Котелок не успел — собрал неделю из базы рецептов', 'Kotelok was slow, so this week comes from the recipe base'), { ms: 5000 });
+  const plan = res && res.dishes ? buildPrepPlan(res, prefs) : null;
+  if (plan) useAI();
+  else { savePlan(baseWeek(), prefs.people, null, false, prefs.wish); toast(t('Котелок не успел составить заготовки — собрал обычную неделю из базы. Попробуй ещё раз чуть позже.', 'Kotelok didn’t finish the meal prep, so here’s a regular week from the base. Try again a bit later.'), { ms: 6000 }); }
   if (R.route === 'plan') go('plan', {}, { replace: true });
+}
+function buildPrepPlan(res, prefs) {
+  const days = weekDays();
+  const dishIds = res.dishes.map(d => {
+    if (!d) return null;
+    const r = buildAIRecipe(d);
+    r.prep = { portions: d.portions, keeps: d.keeps || '', reheat: d.reheat || '' };
+    return recipeOK(r) ? r.id : null;
+  });
+  const firstOk = dishIds.find(Boolean); if (!firstOk) return null;
+  const pick = i => dishIds[i] || firstOk;
+  saveAI(dishIds.filter(Boolean).map(id => RECIPES[id]));
+  const uniq = a => a.filter((v, i) => v && a.indexOf(v) === i);
+  const plan = {
+    id: 'w' + Date.now().toString(36), type: 'prep', at: Date.now(), ai: true,
+    people: res.people || prefs.people, cookDays: res.cookDays || prefs.cookDays, energy: res.energy || prefs.energy, buy: res.buy || prefs.buy,
+    canBuy: prefs.canBuy || '', wish: prefs.wish || '', note: res.note || '', buyList: res.buyList || [],
+    dishIds: uniq(dishIds),
+    sessions: res.sessions.map(s => Object.assign({}, days[s.day - 1], { time: s.time, steps: s.steps, ids: uniq(s.dishes.map(pick)) })),
+    days: res.eat.map(e => Object.assign({ id: pick(e.dish), store: e.store }, days[e.day - 1])),
+    sdone: {},
+  };
+  S.plans = [plan].concat(S.plans || []).slice(0, 6);
+  S.plan = plan; save();
+  return plan;
 }
 function weekHTML(plan) {
   if (!plan || !plan.days) return '';
@@ -2464,12 +2562,12 @@ function weekHTML(plan) {
 function weekShopSheet(plan) {
   plan = plan || S.plan; if (!plan) return;
   const cnt = {};
-  plan.days.forEach(d => { const r = RECIPES[d.id]; if (!r) return; r.ing.forEach(([k, , , opt]) => { if (opt || isPantry(k)) return; cnt[k] = (cnt[k] || 0) + 1; }); });
+  (plan.type === 'prep' ? plan.dishIds : plan.days.map(d => d.id)).forEach(id => { const r = RECIPES[id]; if (!r) return; r.ing.forEach(([k, , , opt]) => { if (opt || isPantry(k)) return; cnt[k] = (cnt[k] || 0) + 1; }); });
   const keys = Object.keys(cnt).sort((a, b) => (S.products.includes(a) - S.products.includes(b)) || cnt[b] - cnt[a]);
   const need = keys.filter(k => !S.products.includes(k));
   const list = keys.map(k => `<div class="it ${S.products.includes(k) ? 'have' : ''}"><span class="pd" style="background:${ingColor(k)}"></span><span class="n">${esc(ingName(k))}</span><span class="meta">${S.products.includes(k) ? t('есть дома', 'at home') : cnt[k] > 1 ? cnt[k] + ' ' + t('блюда', 'dishes') : ''}</span></div>`).join('');
   const txt = need.map(k => '— ' + ingName(k)).join('\n');
-  const ov = sheet(t('Что купить на неделю', 'Shopping list for the week'), `<div class="stack" data-s style="gap:12px"><p class="note" style="margin:0">${t('Купить: ', 'To buy: ')}${nw(need.length, 'product')}. ${t('Количества — в рецептах, по дням.', 'Amounts are in each day’s recipe.')}</p><div class="shoplist">${list}</div><button class="btn full" data-a="weekcopy">${t('Скопировать список', 'Copy the list')}</button></div>`, { kind: 'ask' });
+  const ov = sheet(t('Что купить на неделю', 'Shopping list for the week'), `<div class="stack" data-s style="gap:12px"><p class="note" style="margin:0">${t('Купить: ', 'To buy: ')}${nw(need.length, 'product')}. ${plan.type === 'prep' ? t('Количества — в рецептах блюд, уже на все порции.', 'Amounts are in each dish’s recipe, for all portions.') : t('Количества — в рецептах, по дням.', 'Amounts are in each day’s recipe.')}${plan.type === 'prep' && plan.buy === 'none' ? ' ' + t('Котелок старался обойтись тем, что есть дома.', 'Kotelok tried to use only what’s at home.') : ''}</p><div class="shoplist">${list}</div><button class="btn full" data-a="weekcopy">${t('Скопировать список', 'Copy the list')}</button></div>`, { kind: 'ask' });
   ov._shop = txt;
 }
 function aiFailMsg(q) {
@@ -2880,12 +2978,15 @@ const A = {
   voice: () => voiceSheet(),
   voiceagain: el => { closeOv(el.closest('.ov'), true); setTimeout(voiceSheet, 280); },
   cookask: () => cookAskSheet(),
-  week: () => { if (needNet()) return; ensureChat(); addMsg({ t: 'q', text: ['Меню на неделю', 'Weekly menu'] }); askPeople(t('Меню ужинов на неделю', 'Weekly dinner menu')); },
+  week: () => newPlanSheet(),
   weekppl: el => { const p = P(el); addMsg({ t: 'me', text: [p.n === 5 ? 'На 5 и больше' : 'На ' + p.n, p.n === 5 ? '5 or more' : 'For ' + p.n] }); if (needNet()) return; runWeek(p.q || 'меню на неделю', p.n); },
   weekshop: el => weekShopSheet(findPlan(P(el).pid)),
-  plannew: () => newPlanSheet(),
+  plannew: el => newPlanSheet(P(el)),
+  optpick: el => { const ov = el.closest('.ov'), g = el.dataset.g; let v = el.dataset.v; if (/^\d+$/.test(v)) v = +v; ov._v = ov._v || {}; ov._v[g] = v; ov.querySelectorAll(`[data-a="optpick"][data-g="${g}"]`).forEach(b => { const on = b === el; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); },
+  planfridge: el => { closeOv(el.closest('.ov'), true); setTimeout(() => go('fridge'), 220); },
+  pstep: el => { const p = P(el), plan = findPlan(p.pid); if (!plan) return; plan.sdone = plan.sdone || {}; plan.sdone[p.k] = !plan.sdone[p.k]; save(); render(false); },
   pplpick: el => { const ov = el.closest('.ov'); ov._ppl = +el.dataset.n; ov.querySelectorAll('[data-a="pplpick"]').forEach(b => { const on = b === el; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }); },
-  plango: el => { const ov = el.closest('.ov'); if (needNet()) return; const n = ov._ppl || 2, w = ((ov.querySelector('#wish') || {}).value || '').trim(); closeOv(ov, true); setTimeout(() => planGenerate(n, w), 200); },
+  plango: el => { const ov = el.closest('.ov'); if (S.aiOn && needNet()) return; const v = ov._v || {}; const prefs = { people: v.people || 2, cookDays: v.cookDays || 1, energy: v.energy || 'mid', buy: v.buy || 'little', canBuy: ((ov.querySelector('#canbuy') || {}).value || '').trim(), wish: ((ov.querySelector('#wish') || {}).value || '').trim() }; closeOv(ov, true); setTimeout(() => planGenerate(prefs), 200); },
   plandel: el => { const pid = P(el).pid; S.plans = (S.plans || []).filter(p => p.id !== pid); S.plan = S.plans[0] || null; save(); go('plan', {}, { replace: true }); toast(t('Меню удалено', 'Menu deleted')); },
   weekopen: () => go('plan'),
   weekcopy: el => { const ov = el.closest('.ov'); const txt = (ov && ov._shop) || ''; try { navigator.clipboard.writeText(txt).then(() => toast(t('Список скопирован', 'List copied'), { tone: 'g' })); } catch (e) { toast(t('Не получилось скопировать', 'Couldn’t copy'), { tone: 'r' }); } },
