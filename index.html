@@ -40,6 +40,20 @@
 .pflag.t{background:#141414;color:#fff}
 .pflag.ok{background:#D6EDD4;color:#1E5B24}
 .plarch{display:flex;flex-wrap:wrap;gap:8px}
+.pchk{display:flex;flex-direction:column;gap:10px;background:#F6F5F1;border-radius:20px;padding:14px}
+.pchk-h b{display:block;font-weight:600;font-size:15px}
+.pchk-h small{display:block;color:#6B6B69;font-size:13px;margin-top:2px;line-height:1.35}
+.pchk .chip .pdot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:6px;vertical-align:1px}
+.pchk-s{margin:0;font-size:14px;line-height:1.4}
+.pchk-s b{font-weight:600}
+.micbtn{display:inline-flex;align-items:center;gap:10px;border:0;border-radius:999px;background:#141414;color:#fff;font:600 14px/1 inherit;font-family:inherit;padding:6px 16px 6px 6px;cursor:pointer}
+.micbtn:focus-visible{outline:2px solid #141414;outline-offset:2px}
+.micbtn .mico{width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#F5D33B,#8CC63F 60%,#3E8E41);flex:none;display:grid;place-items:center}
+.micbtn .mico svg{width:14px;height:14px}
+.micbtn.light{background:#fff;color:#141414;box-shadow:inset 0 0 0 1px #E2E0DA}
+.micbtn.wide{width:100%;justify-content:flex-start;padding:10px 16px 10px 10px;border-radius:22px}
+.micbtn.wide .mico{width:36px;height:36px}
+.micbtn small{display:block;font-weight:400;font-size:12px;opacity:.7;margin-top:3px}
 .psess{display:grid;grid-template-columns:64px 1fr;gap:12px;background:#fff;border-radius:22px;padding:12px}
 .psess .pdate{background:#F5D33B;align-self:start;min-height:84px}
 .psess.today{box-shadow:inset 0 0 0 2px #141414}
@@ -869,9 +883,23 @@ const DIETS = [
   { k:'vegan', t:['Только растительное', 'Plant-based'], ex:['meat','fish','dairy','egg'] },
 ];
 const DISLIKES = [
-  { k:'cilantro', t:['Кинза','Cilantro'] }, { k:'mushroom', t:['Грибы','Mushrooms'] }, { k:'onion', t:['Лук','Onion'] }, { k:'garlic', t:['Чеснок','Garlic'] },
-  { k:'chili', t:['Острое','Spicy'] }, { k:'k:fish', t:['Рыба','Fish'] }, { k:'shrimp', t:['Морепродукты','Seafood'] }, { k:'k:dairy', t:['Молочное','Dairy'] }, { k:'gl', t:['Глютен','Gluten'] },
+  { k:'k:meat', t:['Всё мясо и птица','Any meat'] }, { k:'g:poultry', t:['Курица и птица','Chicken & poultry'] }, { k:'g:pork', t:['Свинина','Pork'] }, { k:'g:beef', t:['Говядина','Beef'] },
+  { k:'g:lamb', t:['Баранина','Lamb'] }, { k:'g:offal', t:['Субпродукты','Offal'] },
+  { k:'k:fish', t:['Рыба','Fish'] }, { k:'sea', t:['Морепродукты','Seafood'] },
+  { k:'k:dairy', t:['Молочное','Dairy'] }, { k:'k:egg', t:['Яйца','Eggs'] }, { k:'gl', t:['Глютен','Gluten'] }, { k:'g:nuts', t:['Орехи','Nuts'] }, { k:'g:legumes', t:['Бобовые','Legumes'] },
+  { k:'mushroom', t:['Грибы','Mushrooms'] }, { k:'onion', t:['Лук','Onion'] }, { k:'garlic', t:['Чеснок','Garlic'] }, { k:'chili', t:['Острое','Spicy'] }, { k:'cilantro', t:['Кинза','Cilantro'] },
+  { k:'tomato', t:['Помидоры','Tomatoes'] }, { k:'eggplant', t:['Баклажаны','Eggplant'] },
 ];
+const NOEAT_GROUPS = {
+  poultry: { keys: ['chicken', 'turkey'], re: /(кур|цыпл|индей|утк|утин|гус|chicken|turkey|duck|goose|poultry)/ },
+  pork: { keys: ['pork', 'bacon', 'sausages', 'mince'], re: /(свин|бекон|ветчин|грудинк|корейк|сало\b|pork|bacon|ham\b|prosciutto)/ },
+  beef: { keys: ['beef'], re: /(говя|телят|beef|veal|steak)/ },
+  lamb: { keys: [], re: /(баран|ягн|lamb|mutton)/ },
+  offal: { keys: [], re: /(печен[ьк]|сердц|желудк|язык|почк|субпрод|liver|heart|kidney|offal)/ },
+  nuts: { keys: [], re: /(орех|арахис|миндал|кешью|фундук|фисташ|кедров|пекан|nut|peanut|almond|cashew|pistachio|hazelnut)/ },
+  legumes: { keys: ['beans', 'chickpeas', 'lentils', 'peas'], re: /(фасол|нут\b|нута|чечев|горох|горош|бобов|соев|тофу|bean|chickpea|lentil|\bpeas?\b|tofu)/ },
+};
+const SEA_RE = /(кревет|кальмар|мид[ия]|осьмин|краб|морепр|гребеш|устриц|shrimp|prawn|squid|mussel|octopus|crab|seafood|oyster)/;
 const SUBS = { feta:['cheese','tvorog'], cream:['sourcream','milk','coconut'], sourcream:['cream'], cheese:['feta'], tvorog:['feta'], butter:['oil'], milk:['cream'], coconut:['cream'],
   lavash:['bread'], noodles:['pasta'], pasta:['noodles'], bacon:['chicken'], cod:['salmon'], salmon:['cod'], mince:['chicken'], lettuce:['cabbage'], zucchini:['pepper'], broccoli:['zucchini'],
   dill:['greenonion'], greenonion:['dill'], cilantro:['dill'], rice:['buckwheat'], buckwheat:['rice'], pumpkin:['carrot'], tomato:['tomatopaste'], tomatopaste:['tomato'], chicken:['mince'], shrimp:['salmon'], avocado:['egg'] };
@@ -1258,6 +1286,66 @@ async function loadAIRecipe(id) {
   if (R.route === 'recipe' && R.p.id === id) render(false);
 }
 
+/* ---------- продукты голосом и прямо в чате ---------- */
+const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="#141414" stroke-width="2.4" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+const micBtn = (label, cls, sub) => `<button class="micbtn ${cls || ''}" data-a="voiceprod"><span class="mico" aria-hidden="true">${MIC_SVG}</span><span>${label}${sub ? `<small>${sub}</small>` : ''}</span></button>`;
+const PROD_STOP = /^(у|меня|дома|в|во|на|холодильнике|морозилке|есть|ещё|еще|немного|чуть|чуть-чуть|пол|полпачки|пачка|пачки|пачку|банка|банки|банку|бутылка|бутылки|кусок|куска|пакет|пакета|штук|штуки|шт|грамм|граммов|г|кг|литр|литра|мл|остался|осталась|осталось|остались|вроде|какой-то|какая-то|какие-то|там|тоже|также|и|да|а|плюс|ну|вот|have|i|got|some|a|an|the|and|in|fridge|at|home)$/;
+function knownIng(phrase) { const k = ingKeyFor(phrase, false); return k && !k.startsWith('x:') ? k : null; }
+function parseProducts(text) {
+  const out = [];
+  const parts = String(text).toLowerCase().replace(/[«»"()]/g, ' ').split(/[,;.\n]|\s+и\s+|\s+да\s+|\s+а также\s+|\s+плюс\s+|\s+and\s+/);
+  for (const part of parts) {
+    const w = part.replace(/\d+([.,]\d+)?/g, ' ').split(/\s+/).filter(x => x && !PROD_STOP.test(x));
+    if (!w.length) continue;
+    const whole = w.join(' ');
+    const k0 = knownIng(whole);
+    if (k0 && w.length <= 2) { out.push(k0); continue; }
+    if (w.length <= 2 && parts.length > 1 && whole.length >= 3) { out.push(ingKeyFor(whole, false)); continue; }
+    for (let i = 0; i < w.length; i++) {
+      const adj = /(ый|ий|ой|ая|яя|ое|ее|ые|ие|ая)$/.test(w[i]);
+      const two = adj && i + 1 < w.length ? knownIng(w[i] + ' ' + w[i + 1]) : null;
+      if (two) { out.push(two); i++; continue; }
+      const one = knownIng(w[i]);
+      if (one) { out.push(one); continue; }
+      if (w[i].length >= 4 && !/(ый|ий|ой|ая|яя|ое|ее|ые|ие)$/.test(w[i])) out.push('x:' + w[i]);
+    }
+  }
+  return [...new Set(out.filter(Boolean))].filter(k => !excludedBy(k));
+}
+function addProducts(text) {
+  const keys = parseProducts(text), added = keys.filter(k => !S.products.includes(k));
+  added.forEach(k => S.products.push(k));
+  save();
+  if (added.length) toast(t('Добавил: ', 'Added: ') + added.map(ingName).join(', ').toLowerCase(), { tone: 'g', ms: 4000 });
+  else toast(keys.length ? t('Это уже отмечено', 'Already marked') : t('Не разобрал продукты — попробуй перечислить через запятую', 'Couldn’t catch any items. Try listing them'), { tone: keys.length ? '' : 'r' });
+  renderKeep();
+}
+function typeProductsSheet() {
+  const ov = sheet(t('Что есть дома?', 'What’s at home?'), `<div class="stack" data-s style="gap:12px"><p class="note" style="margin:0">${t('Перечисли через запятую: яйца, сыр, полпачки сметаны, курица', 'List them: eggs, cheese, some sour cream, chicken')}</p><input class="input" id="prodtxt" maxlength="300" autocomplete="off" enterkeyhint="done"><button class="btn full" data-a="prodtxtgo">${t('Добавить', 'Add')}</button></div>`, { kind: 'ask' });
+  const inp = ov.querySelector('#prodtxt');
+  if (inp) { setTimeout(() => inp.focus(), 250); inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); A.prodtxtgo(ov.querySelector('[data-a="prodtxtgo"]')); } }); }
+}
+function pantryBlock(m) {
+  const ids = (m.res || []).filter(id => RECIPES[id]);
+  if (!ids.length) return '';
+  const cnt = {};
+  ids.forEach(id => RECIPES[id].ing.forEach(([k, , , opt]) => { if (opt || isPantry(k) || excludedBy(k)) return; cnt[k] = (cnt[k] || 0) + 1; }));
+  const keys = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a]).slice(0, 16);
+  if (!keys.length) return '';
+  const chips = keys.map(k => { const on = S.products.includes(k); return `<button class="chip ${on ? 'on' : ''}" data-a="pchk" data-k="${esc(k)}" aria-pressed="${on}"><span class="pdot" style="background:${ingColor(k)}"></span>${esc(ingName(k))}${on ? ' ✓' : ''}</button>`; }).join('');
+  const marked = keys.filter(k => S.products.includes(k)).length;
+  const ready = ids.filter(id => !missing(RECIPES[id]).length);
+  const best = ids.slice().sort((a, b) => missing(RECIPES[a]).length - missing(RECIPES[b]).length)[0];
+  const miss = missing(RECIPES[best]).map(ingName);
+  const status = !marked
+    ? t('Отметь, что есть, — сразу скажу, что докупить для каждого блюда.', 'Mark what you have and I’ll tell you what to buy for each dish.')
+    : ready.length
+      ? `${t('Всё есть для: ', 'You have everything for: ')}<b>${ready.slice(0, 2).map(id => rTitle(RECIPES[id])).join(', ')}</b>${ready.length > 2 ? t(' и ещё ', ' and ') + (ready.length - 2) : ''}. ${t('Можно готовить без магазина.', 'No shopping needed.')}`
+      : `${t('Меньше всего докупить для «', 'Least to buy for “')}<b>${rTitle(RECIPES[best])}</b>${t('»: ', '”: ')}${miss.join(', ').toLowerCase()}.`;
+  const repick = marked && m.qtext && m.ai ? `<button class="btn s mist" data-a="repick" ${dp({ q: m.qtext })}>${t('Подобрать заново с тем, что есть', 'Pick again with what I have')}</button>` : '';
+  return `<div class="pchk"><div class="pchk-h"><b>${t('Что из этого есть дома?', 'What do you have at home?')}</b><small>${t('Фото не всегда видит продукты в пакетах и упаковках — отметь сам или скажи голосом.', 'Photos miss things in bags and packs, so tap them or just say it.')}</small></div><div class="row wrap" style="gap:6px">${chips}</div><p class="pchk-s">${status}</p><div class="row wrap" style="gap:8px;align-items:center">${micBtn(t('Сказать, что есть', 'Say what I have'))}${repick}</div></div>`;
+}
+
 /* ---------- меню на неделю ---------- */
 const WEEK_RE = /(недел|рацион|на\s*(7|семь)\s*дн|меню\s+на|план\s+(питан|ужин)|\bweek|meal\s*plan)/i;
 function parsePeople(q) {
@@ -1337,6 +1425,7 @@ let S = S0();
 try { const raw = localStorage.getItem('supa-proto'); if (raw) { const o = JSON.parse(raw); if (o && o.v === 4) S = Object.assign(S0(), o); } } catch (e) {}
 if (S.aiDay !== dayKey()) { S.aiUsed = 0; S.aiDay = dayKey(); }
 S.aiMax = AI_LIMIT;
+S.noEat = (S.noEat || []).map(x => x === 'shrimp' ? 'sea' : x);
 S.aiRecipes = S.aiRecipes || {};
 if (!S.plans) { S.plans = []; if (S.plan && S.plan.days) { const t0 = new Date(S.plan.at); t0.setHours(0, 0, 0, 0); S.plans = [Object.assign({ id: 'w' + S.plan.at.toString(36), note: '' }, S.plan, { days: S.plan.days.map((d, i) => { const dd = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate() + i); return Object.assign({ ts: dd.getTime(), num: dd.getDate() }, d); }) })]; } }
 S.plan = S.plans[0] || null;
@@ -1361,6 +1450,8 @@ function excludedBy(k) {
     if (tok === k) return tok;
     if (tok.startsWith('k:') && g.kind === tok.slice(2)) return tok;
     if (tok === 'gl' && g.gl) return tok;
+    if (tok === 'sea' && (g.sea || k === 'shrimp' || SEA_RE.test(g.ru.toLowerCase()))) return tok;
+    if (tok.startsWith('g:')) { const G = NOEAT_GROUPS[tok.slice(2)]; if (G && (G.keys.includes(k) || G.re.test(g.ru.toLowerCase() + ' ' + g.en.toLowerCase()))) return tok; }
     if (tok.startsWith('x:')) { const f = findIng(tok.slice(2)); if (f === k) return tok; }
   }
   return null;
@@ -1762,6 +1853,7 @@ let MID = 0;
 function addMsg(m) { m.id = ++MID; S.chat.push(m); save(); renderKeep(true); return m; }
 function dropMsg(type) { S.chat = S.chat.filter(m => m.t !== type); }
 function msgHTML(m) {
+  if (m.id && !RT._resScan) { RT._resScan = 1; const last = S.chat.filter(x => x.res && x.res.length && !x.week).pop(); RT.lastResId = last ? last.id : 0; setTimeout(() => { RT._resScan = 0; }); }
   const fresh = m.id > RT.lastMsgRendered;
   if (m.t === 'me') return `<div class="me ${fresh ? 'me-new' : ''}">${esc(tt(m.text))}</div>`;
   if (m.t === 'q') return `<div class="uq ${fresh ? 'msg-new' : ''}"><span class="mono">${tt(m.who || ['Ты', 'You'])} · ${m.time || hhmm()}</span><h2 class="h-cond">${esc(tt(m.text))}</h2></div>`;
@@ -1776,6 +1868,7 @@ function msgHTML(m) {
     h += isDesk()
       ? `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">${m.res.slice(0, 3).map(dishCard).join('')}</div>`
       : `<div class="dish-row">${m.res.map(dishCard).join('')}</div>`;
+    if (!m.week && m.id === RT.lastResId) h += pantryBlock(m);
     h += `<div class="row wrap" style="gap:12px"><button class="btn m" data-a="dinners" data-mid="${m.id}">${isDesk() ? t('Смотреть все: ', 'See all ') + m.res.length : t('Листать все: ', 'Browse all ') + m.res.length}</button><span class="meta">${tt(m.foot || ['Ответ ИИ · может ошибаться', 'AI answer · may be wrong'])}</span></div>`;
   }
   if (m.mini) { const r = RECIPES[m.mini]; h += `<button class="next" data-a="go" data-r="recipe" ${dp({ id: m.mini, from: 'chat' })} style="background:var(--mist2)"><img src="${cover(r)}" alt=""><span><b style="display:block;font-weight:600">${rTitle(r)}</b><span class="meta">${t('вкусно', 'tasty')} · ${r.time} ${t('мин', 'min')} · ${t('сегодня', 'today')}</span></span></button>`; }
@@ -1791,6 +1884,7 @@ function chatStart() {
   <div class="row" data-s style="justify-content:space-between;flex-wrap:wrap"><span class="mono">${t('или выбери, сколько сил', 'or pick your energy level')}</span>${aiCounter()}</div>
   <div class="energy" data-s>${ENERGY.map(e => `<button data-a="energy" data-k="${e.k}"><span class="th"><img src="${IMG(e.img)}" alt=""></span><span style="flex:1;min-width:0"><b>${tt(e.t)}</b><small>${tt(e.s)}</small></span>${S.energy === e.k ? `<span class="tag lem">${t('обычно', 'usual')}</span>` : ''}</button>`).join('')}</div>
   <button class="weekcta" data-a="${planActive(S.plan) ? 'weekopen' : 'week'}" data-s><span class="wkdots" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span style="flex:1;min-width:0"><b>${planActive(S.plan) ? t('Мой рацион на неделю', 'My weekly meal plan') : t('Рацион на неделю', 'Weekly meal plan')}</b><small>${planActive(S.plan) ? planRange(S.plan) + ' · ' + t('расписание и список покупок', 'schedule and shopping list') : t('Готовишь 1–2 дня — ешь всю неделю', 'Cook 1–2 days, eat all week')}</small></span><span class="tag lem">${t('новое', 'new')}</span></button>
+  <div data-s>${micBtn(S.products.length ? t('Дома ', 'At home: ') + nw(S.products.length, 'product') + t(' · добавить голосом', ' · add by voice') : t('Скажи, что есть в холодильнике', 'Say what’s in your fridge'), 'light wide', t('Котелок подберёт ужин из того, что есть', 'Kotelok picks dinner from what you have'))}</div>
   <div class="row wrap" data-s style="gap:8px">${ne.length ? `<button class="chip" data-a="memory">${t('Не ем: ', 'Skip: ')}${esc(ne.slice(0, 2).join(', '))}${ne.length > 2 ? ' +' + (ne.length - 2) : ''}</button>` : `<button class="chip" data-a="memory">${I.plusS} ${t('Что не ешь?', 'Anything you skip?')}</button>`}
   ${S.products.length ? `<button class="chip" data-a="go" data-r="fridge">${prodDots()} ${t('Дома: ', 'At home: ')}${nw(S.products.length, 'product')}</button>` : `<button class="chip" data-a="picker">${I.plusS} ${t('Что есть дома?', 'What’s at home?')}</button>`}</div>`;
 }
@@ -2105,7 +2199,8 @@ function prodChips() {
   return `<div class="row wrap" style="gap:6px">${S.products.map(k => `<button class="chip mist" data-a="rmprod" data-k="${esc(k)}" aria-label="${t('Убрать ', 'Remove ')}${esc(ingName(k))}"><span class="pd" style="background:${ingColor(k)}"></span>${esc(ingName(k))} <span class="x">${I.xs}</span></button>`).join('')}</div>`;
 }
 function foundBlock() {
-  return `<div class="bot" data-s><div class="hd">${botAv()}<p>${R.p.stage === 'found' ? t('Нашёл на фото: ', 'Found in the photo: ') + nw(RT.found || 0, 'product') + '. ' + t('Убери лишнее или добавь своё.', 'Remove anything wrong or add your own.') : t('Дома ', 'At home: ') + nw(S.products.length, 'product') + '. ' + t('Нажми на продукт, чтобы убрать.', 'Tap an item to remove it.')}</p></div>${prodChips()}${addField('fr-add', t('Добавить продукт', 'Add an item'), 'prod')}</div>`;
+  const nudge = R.p.stage === 'found' ? `<div class="pchk" data-s><div class="pchk-h"><b>${t('Камера могла что-то пропустить', 'The camera may have missed something')}</b><small>${t('Продукты в пакетах, контейнерах и на дверце на фото почти не видно. Добавь их голосом или списком — подборки станут точнее.', 'Food in bags, boxes and door shelves is hard to see. Add it by voice or from the list for better picks.')}</small></div><div class="row wrap" style="gap:8px">${micBtn(t('Сказать, что ещё есть', 'Say what else I have'))}<button class="btn s mist" data-a="pickersheet">${t('Отметить списком', 'Pick from the list')}</button></div></div>` : '';
+  return nudge + `<div class="bot" data-s><div class="hd">${botAv()}<p>${R.p.stage === 'found' ? t('Нашёл на фото: ', 'Found in the photo: ') + nw(RT.found || 0, 'product') + '. ' + t('Убери лишнее или добавь своё.', 'Remove anything wrong or add your own.') : t('Дома ', 'At home: ') + nw(S.products.length, 'product') + '. ' + t('Нажми на продукт, чтобы убрать.', 'Tap an item to remove it.')}</p></div>${prodChips()}${addField('fr-add', t('Добавить продукт', 'Add an item'), 'prod')}</div>`;
 }
 function threeDinners() {
   const ready = homeReady(), list = rankList(null, 90).slice(0, 3);
@@ -2394,7 +2489,7 @@ async function runPick(sel) {
     q.ai = out.ids; q.gen = 1;
     const def = both(() => t('Придумал ', 'Came up with ') + nw(out.ids.length, 'dinner') + t(' до ', ' under ') + S.lim + ' ' + t('минут.', 'minutes.'));
     const txt = out.note ? esc(out.note) : null;
-    return addMsg({ t: 'bot', ai: 1, text: txt ? [txt, txt] : def, res: out.ids.slice(0, 5), q, lim: S.lim, foot: ['Придумал ИИ · проверяй время и температуру', 'AI-made · check times and temperatures'] });
+    return addMsg({ t: 'bot', ai: 1, text: txt ? [txt, txt] : def, res: out.ids.slice(0, 5), q, qtext: text, lim: S.lim, foot: ['Придумал ИИ · проверяй время и температуру', 'AI-made · check times and temperatures'] });
   }
   const list = topFive(q, S.lim);
   if (!list.length) return noneMsg();
@@ -2434,7 +2529,7 @@ async function runAI(q, pq, limited) {
   pq.ai = out.ids; pq.gen = 1;
   const def = both(() => t(`Придумал ${nw(out.ids.length, 'dinner')} под «${esc(q)}».`, `Came up with ${nw(out.ids.length, 'dinner')} for “${esc(q)}”.`));
   const txt = out.note ? esc(out.note) : null;
-  addMsg({ t: 'bot', ai: 1, text: txt ? [txt, txt] : def, res: out.ids.slice(0, 5), q: pq, lim: S.lim, foot: ['Придумал ИИ · проверяй время и температуру', 'AI-made · check times and temperatures'] });
+  addMsg({ t: 'bot', ai: 1, text: txt ? [txt, txt] : def, res: out.ids.slice(0, 5), q: pq, qtext: q, lim: S.lim, foot: ['Придумал ИИ · проверяй время и температуру', 'AI-made · check times and temperatures'] });
 }
 function askPeople(q) {
   const n = parsePeople(q || '');
@@ -2744,11 +2839,12 @@ function pickerSheet() {
 function nameSheet() {
   sheet(t('Как тебя зовут?', 'What’s your name?'), `<div data-body class="stack" style="gap:12px"><p>${t('Так Котелок будет обращаться к тебе в чате.', 'Kotelok will use it in chat.')}</p><form class="addf" data-add="name" novalidate><label class="sr" for="nm">${t('Имя', 'Name')}</label><input class="input s" id="nm" value="${esc(S.name)}" placeholder="${t('Имя', 'Name')}" maxlength="30" autofocus><button class="btn s dark" type="submit" disabled>${t('Сохранить', 'Save')}</button></form></div>`, { kind: 'name' });
 }
-function voiceSheet() {
-  if (needNet()) return;
+function voiceSheet(mode) {
+  RT.vMode = mode || 'ask';
+  if (RT.vMode === 'ask' && needNet()) return;
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { toast(t('Этот браузер не умеет распознавать голос — напиши текстом', 'This browser can’t do voice input. Please type instead'), { tone: 'r', ms: 5000 }); return; }
-  const ov = sheet(t('Слушаю…', 'Listening…'), `<div data-body class="stack" style="align-items:center;gap:18px;padding:10px 0"><span class="ball xl listen" data-s></span><p id="vt" class="h-cond" style="font-size:30px;min-height:68px;text-align:center" aria-live="polite"></p><span class="mono">${t('Распознаёт система телефона', 'Your phone does the recognition')}</span><div class="row" style="width:100%"><button class="btn sec" style="flex:1" data-a="voiceagain">${t('Заново', 'Again')}</button><button class="btn" style="flex:1" data-a="voicesend" id="vsend" disabled>${t('Отправить', 'Send')}</button></div><button class="lnk" data-a="perm" data-k="mic" style="font-size:14px">${t('Микрофон не работает?', 'Microphone not working?')}</button></div>`, { kind: 'voice' });
+  if (!SR) { if (RT.vMode === 'prod') return typeProductsSheet(); toast(t('Этот браузер не умеет распознавать голос — напиши текстом', 'This browser can’t do voice input. Please type instead'), { tone: 'r', ms: 5000 }); return; }
+  const ov = sheet(RT.vMode === 'prod' ? t('Что есть дома? Говори', 'What’s at home? Go ahead') : t('Слушаю…', 'Listening…'), `<div data-body class="stack" style="align-items:center;gap:18px;padding:10px 0"><span class="ball xl listen" data-s></span><p id="vt" class="h-cond" style="font-size:30px;min-height:68px;text-align:center" aria-live="polite"></p>${RT.vMode === 'prod' ? `<span class="note" style="text-align:center">${t('Например: «яйца, сыр, курица, полпачки сметаны и помидоры»', 'E.g. “eggs, cheese, chicken, some sour cream and tomatoes”')}</span><button class="lnk" data-a="prodtype" style="font-size:14px">${t('Лучше напишу списком', 'I’d rather type')}</button>` : ''}<span class="mono">${t('Распознаёт система телефона', 'Your phone does the recognition')}</span><div class="row" style="width:100%"><button class="btn sec" style="flex:1" data-a="voiceagain">${t('Заново', 'Again')}</button><button class="btn" style="flex:1" data-a="voicesend" id="vsend" disabled>${t('Отправить', 'Send')}</button></div><button class="lnk" data-a="perm" data-k="mic" style="font-size:14px">${t('Микрофон не работает?', 'Microphone not working?')}</button></div>`, { kind: 'voice' });
   RT.vPhrase = '';
   try { RT.rec && RT.rec.abort(); } catch (e) {}
   const rec = new SR(); RT.rec = rec;
@@ -2976,7 +3072,7 @@ const A = {
   namesheet: nameSheet,
   plussheet: () => sheet(t('Добавить к запросу', 'Add to your request'), `<div data-body class="stack" style="gap:8px"><button class="opt" data-a="pickphoto" data-s><span class="lg" style="background:var(--sky)">${I.fridge}</span><span class="tx"><b>${t('Фото холодильника', 'Fridge photo')}</b><small>${S.plus.active ? t('Без лимита', 'Unlimited') : t('Осталось ', 'Left this week: ') + Math.max(0, S.photosMax - S.photosUsed) + t(' на этой неделе', '')}</small></span>›</button><button class="opt" data-a="picker" data-s><span class="lg" style="background:var(--leaf)">≡</span><span class="tx"><b>${t('Отметить продукты', 'Mark items')}</b><small>${t('Если камеры нет под рукой', 'If the camera isn’t handy')}</small></span>›</button><button class="opt" data-a="memory" data-s><span class="lg" style="background:var(--pink);color:#141414">✕</span><span class="tx"><b>${t('Не ем…', 'I skip…')}</b><small>${noEatSummary().join(', ') || t('Пока ничего', 'Nothing yet')}</small></span>›</button></div>`, { kind: 'plus' }),
   voice: () => voiceSheet(),
-  voiceagain: el => { closeOv(el.closest('.ov'), true); setTimeout(voiceSheet, 280); },
+  voiceagain: el => { const m = RT.vMode; closeOv(el.closest('.ov'), true); setTimeout(() => voiceSheet(m), 280); },
   cookask: () => cookAskSheet(),
   week: () => newPlanSheet(),
   weekppl: el => { const p = P(el); addMsg({ t: 'me', text: [p.n === 5 ? 'На 5 и больше' : 'На ' + p.n, p.n === 5 ? '5 or more' : 'For ' + p.n] }); if (needNet()) return; runWeek(p.q || 'меню на неделю', p.n); },
@@ -2993,7 +3089,13 @@ const A = {
   airetry: el => { const id = P(el).id; RT.aiLoad = RT.aiLoad || {}; RT.aiLoad[id] = null; render(false); },
   noop: () => {},
   cqsend: el => { const ov = el.closest('.ov'), v = ((ov.querySelector('#cq') || {}).value || '').trim(); if (!v) return; closeOv(ov, true); setTimeout(() => cookQuestion(v), 220); },
-  voicesend: el => { try { RT.rec && RT.rec.abort(); } catch (e) {} const p = RT.vPhrase; closeOv(el.closest('.ov'), true); if (p) setTimeout(() => askText(p), 200); },
+  voicesend: el => { try { RT.rec && RT.rec.abort(); } catch (e) {} const p = RT.vPhrase; closeOv(el.closest('.ov'), true); if (!p) return; if (RT.vMode === 'prod') setTimeout(() => addProducts(p), 200); else setTimeout(() => askText(p), 200); },
+  voiceprod: () => voiceSheet('prod'),
+  prodtype: el => { try { RT.rec && RT.rec.abort(); } catch (e) {} closeOv(el.closest('.ov'), true); setTimeout(typeProductsSheet, 250); },
+  pickersheet: () => pickerSheet(),
+  prodtxtgo: el => { const ov = el.closest('.ov'), v = ((ov.querySelector('#prodtxt') || {}).value || '').trim(); if (!v) return; closeOv(ov, true); setTimeout(() => addProducts(v), 200); },
+  pchk: el => { const k = el.dataset.k, i = S.products.indexOf(k); if (i >= 0) S.products.splice(i, 1); else S.products.push(k); save(); renderKeep(); },
+  repick: el => { const q = P(el).q; if (!q || needNet()) return; addMsg({ t: 'me', text: ['Подбери заново с тем, что есть дома', 'Pick again with what I have'] }); const pq = parseQuery(q); S.query = pq; S.removed = []; runAI(q, pq); },
   msgmenu: el => { const m = findMsg(el.dataset.mid); sheet(t('Ответ Котелка', 'Kotelok’s answer'), `<div data-body class="stack" style="gap:8px"><button class="opt" data-a="copymsg" data-mid="${m.id}" data-s><span class="lg" style="background:var(--sky)">⧉</span><span class="tx"><b>${t('Скопировать', 'Copy')}</b></span></button><button class="opt" data-a="report" data-s><span class="lg" style="background:var(--orange)">!</span><span class="tx"><b>${t('Пожаловаться на ответ', 'Report this answer')}</b><small>${t('Опасный совет, неправда, не то, что просил', 'Unsafe advice, untrue, not what I asked')}</small></span>›</button></div>`, { kind: 'msg' }); },
   copymsg: el => { const m = findMsg(el.dataset.mid), x = tt(m.text || '').replace(/<[^>]+>/g, ''); closeAll(); try { navigator.clipboard.writeText(x).then(() => toast(t('Скопировано', 'Copied'), { tone: 'g' }), () => toast(t('Не вышло скопировать', 'Couldn’t copy'))); } catch (e) { toast(t('Не вышло скопировать', 'Couldn’t copy')); } },
   report: () => { closeAll(); setTimeout(() => sheet(t('Что не так с ответом?', 'What’s wrong with the answer?'), `<div data-body class="stack" style="gap:12px"><div class="row wrap" data-s style="gap:8px">${[t('Опасный совет', 'Unsafe advice'), t('Неправда', 'Not true'), t('Не то, что просил', 'Not what I asked'), t('Другое', 'Something else')].map(x => `<button class="chip mist" data-a="rpick">${x}</button>`).join('')}</div><button class="btn full" data-a="rsend" data-s disabled id="rsend">${t('Отправить', 'Send')}</button></div>`, { kind: 'report' }), 280); },
