@@ -40,6 +40,13 @@
 .pflag.t{background:#141414;color:#fff}
 .pflag.ok{background:#D6EDD4;color:#1E5B24}
 .plarch{display:flex;flex-wrap:wrap;gap:8px}
+.kbju{display:flex;flex-direction:column;gap:10px;background:#fff;border-radius:22px;padding:14px}
+.kbh{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.kbrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.kb{background:#F6F5F1;border-radius:16px;padding:10px 8px;text-align:center;display:flex;flex-direction:column;gap:2px}
+.kb:first-child{background:#F5D33B}
+.kb b{font-family:"Sofia Sans Extra Condensed","Arial Narrow",sans-serif;font-weight:800;font-size:30px;line-height:1}
+.kb span{font-size:12px;color:#5E5E5C}
 .pchk{display:flex;flex-direction:column;gap:10px;background:#F6F5F1;border-radius:20px;padding:14px}
 .pchk-h b{display:block;font-weight:600;font-size:15px}
 .pchk-h small{display:block;color:#6B6B69;font-size:13px;margin-top:2px;line-height:1.35}
@@ -1280,10 +1287,96 @@ async function loadAIRecipe(id) {
     if (res.time) r.time = res.time;
     if (res.pans) r.pans = [res.pans, res.pans];
     if (res.tip) r.tip = [res.tip, res.tip];
+    if (res.kbju) r.est = res.kbju;
     saveAI([r]);
     RT.aiLoad[id] = 'done';
   } catch (e) { RT.aiLoad[id] = 'error'; }
   if (R.route === 'recipe' && R.p.id === id) render(false);
+}
+
+/* ---------- КБЖУ: на 100 г продукта [ккал, белки, жиры, углеводы] ---------- */
+const NUTR = {
+  tomato:[20,0.9,0.2,3.9], cucumber:[15,0.7,0.1,3], pepper:[27,1.3,0.3,5.3], onion:[41,1.4,0.2,8.2], garlic:[149,6.4,0.5,33], carrot:[35,1.3,0.1,6.9],
+  potato:[77,2,0.4,16.3], mushroom:[27,4.3,1,1], zucchini:[24,0.6,0.3,4.6], broccoli:[34,2.8,0.4,6.6], cabbage:[27,1.8,0.1,4.7], beet:[42,1.5,0.1,8.8],
+  pumpkin:[26,1,0.1,6.5], avocado:[160,2,14.7,8.5], lettuce:[15,1.4,0.2,2.9], greenonion:[19,1.3,0,4.6], dill:[40,2.5,0.5,6.3], cilantro:[23,2.1,0.5,3.7],
+  lemon:[29,1.1,0.3,9], chili:[40,1.9,0.4,8.8], buckwheat:[343,12.6,3.3,62], rice:[344,6.7,0.7,78.9], pasta:[350,12,1.5,71], noodles:[340,11,1,70],
+  flour:[334,10,1,70], bread:[250,8,3,48], lavash:[275,9,1.2,56], lentils:[314,24,1.5,53], egg:[157,12.7,11.5,0.7], milk:[52,2.8,2.5,4.7],
+  cream:[206,2.5,20,3.4], sourcream:[204,2.6,20,3.4], cheese:[360,24,29,0], feta:[264,14,21,4], tvorog:[159,16,9,2], butter:[748,0.5,82.5,0.8],
+  chicken:[150,21,7,0], mince:[254,17,20,0], bacon:[500,23,45,0], salmon:[208,20,13,0], cod:[78,17.7,0.7,0], tuna:[96,21,1,0], shrimp:[95,19,1.5,0],
+  soy:[53,8,0,6], tomatopaste:[99,5,0,19], coconut:[197,2,21,3], oil:[899,0,99.9,0], sugar:[399,0,0,99.8], curry:[325,13,14,58],
+  pork:[260,16,21,0], beef:[187,19,12,0], turkey:[140,21,6,0], sausages:[260,11,23,2], squid:[100,18,2,2], chickpeas:[164,9,2.6,27], beans:[127,8.7,0.5,22.8],
+  bulgur:[342,12,1.3,76], corn:[119,4,1.2,23], peas:[73,5,0.2,13.8], eggplant:[24,1.2,0.1,4.5], spinach:[22,2.9,0.3,2], cauliflower:[30,2.5,0.3,5.4],
+  parsley:[49,3.7,0.4,7.6], ginger:[80,1.8,0.8,17.8], yogurt:[60,4,2.5,5], paprika:[282,14,13,54],
+};
+/* вес одной «штуки» и прочих единиц, г */
+const PIECE = { egg:55, onion:100, tomato:120, cucumber:120, pepper:150, carrot:80, potato:120, zucchini:250, eggplant:250, avocado:150, lemon:100, chili:15,
+  beet:200, broccoli:400, cauliflower:700, cabbage:1500, lettuce:300, salmon:180, cod:150, chicken:120, pork:150, beef:200, turkey:150, sausages:50, squid:150,
+  lavash:80, pumpkin:300, mushroom:20, bread:30, bacon:15, cheese:20, garlic:5, mince:100, shrimp:15 };
+const SPOON = { oil:14, sourcream:20, flour:10, sugar:15, soy:18, tomatopaste:20, butter:15, cream:15, yogurt:20, milk:15, coconut:15, tvorog:20, cheese:8, paprika:7, curry:7 };
+const CUP = { buckwheat:210, rice:230, flour:160, milk:250, lentils:210, bulgur:200, cream:250, sourcream:250, yogurt:250, tvorog:220, noodles:100, pasta:100, peas:160, corn:160, chickpeas:200, beans:200, sugar:200 };
+const CAN = { tuna:130, corn:220, beans:240, chickpeas:240, coconut:400, peas:220, tomato:400 };
+const LIQ = { oil:0.92, milk:1.03, cream:1, soy:1.1, coconut:1, yogurt:1.03 };
+function amountNum(s) {
+  s = s.replace(/½/g, ' 0.5').replace(/¼/g, ' 0.25').replace(/¾/g, ' 0.75').replace(/(\d+)\s*\/\s*(\d+)/g, (_, a, b) => String(+a / +b));
+  const m = s.match(/(\d+(?:[.,]\d+)?)(?:\s*[–\-]\s*(\d+(?:[.,]\d+)?))?/);
+  if (!m) return null;
+  const a = parseFloat(m[1].replace(',', '.')), b = m[2] ? parseFloat(m[2].replace(',', '.')) : null;
+  return b ? (a + b) / 2 : a;
+}
+function ingGrams(k, amount, serves) {
+  const s = String(amount || '').toLowerCase();
+  const n0 = amountNum(s), n = n0 == null ? 1 : n0;
+  if (/желт/.test(s)) { const m = s.match(/(\d+)\s*желт\S*(?:\s*и\s*(\d+))?/); return m ? +m[1] * 17 + (m[2] ? +m[2] * 55 : 0) : 17 * n; }
+  if (/(?<![а-яёa-z])(кг|kg)(?![а-яёa-z])/.test(s)) return n * 1000;
+  if (/(?<![а-яёa-z])(мл|ml)(?![а-яёa-z])/.test(s)) return n * (LIQ[k] || 1);
+  if (/(?<![а-яёa-z])(л|l)(?![а-яёa-z])|литр/.test(s)) return n * 1000 * (LIQ[k] || 1);
+  if (/(?<![а-яёa-z])(г|гр|g)(?![а-яёa-z])|грамм/.test(s)) return n;
+  if (/ч\.?\s*лож|tsp/.test(s)) return n * (SPOON[k] || 15) / 3;
+  if (/лож|tbsp/.test(s)) return n * (SPOON[k] || 15);
+  if (/стакан|cup/.test(s)) return n * (CUP[k] || 200) / (/варён|варен|cooked/.test(s) ? 3 : 1);
+  if (/банк|can|tin/.test(s)) return n * (CAN[k] || 300);
+  if (/зубч|clove/.test(s)) return n * 5;
+  if (/головк|bulb/.test(s)) return n * 50;
+  if (/больш\S* пуч/.test(s)) return 50;
+  if (/пуч|bunch/.test(s)) return n * 30;
+  if (/веточ|перь|sprig/.test(s)) return /неск/.test(s) ? 8 : 5;
+  if (/лист/.test(s)) return 20;
+  if (/щепот|pinch|по вкусу|to taste/.test(s)) return 0.5;
+  if (/(?<![а-яёa-z])(см|cm)(?![а-яёa-z])/.test(s)) return n * 5;
+  if (/ломт|slice/.test(s)) return n * (k === 'bread' ? 30 : k === 'bacon' ? 15 : k === 'cheese' ? 20 : 25);
+  if (/булоч|bun/.test(s)) return n * 60;
+  if (/к подаче|to serve|для подачи/.test(s)) return (['sourcream', 'cheese', 'yogurt', 'feta'].includes(k) ? 20 : 8) * (serves || 2);
+  if (/для формы|для обвалки|для жарки|for the pan|for frying|for dusting/.test(s)) return k === 'flour' ? 20 : 5;
+  if (/кочан|head/.test(s)) return n * (PIECE[k] || 500);
+  if (/филе|fillet/.test(s)) return n * (k === 'chicken' ? 200 : 150);
+  if (/бед|thigh/.test(s)) return n * 110;
+  if (/стейк|steak/.test(s)) return n * (PIECE[k] || 180);
+  if (/тушк/.test(s)) return n * 150;
+  if (/шт|pc|piece|\d/.test(s)) return n * (PIECE[k] || 100);
+  return null;
+}
+function kbju(r) {
+  if (!r || !r.ing) return null;
+  const tot = [0, 0, 0, 0], unknown = [];
+  for (const [k, a, , opt] of r.ing) {
+    if (opt) continue;
+    const g = ingGrams(k, a, r.serves);
+    const nv = NUTR[k];
+    if (!nv || g == null) { if (!/^(соль|перец|вода)/i.test(ingName(k))) unknown.push(k); continue; }
+    for (let i = 0; i < 4; i++) tot[i] += nv[i] * g / 100;
+  }
+  const sv = Math.max(1, r.serves || 1);
+  const calc = tot.map(x => Math.round(x / sv));
+  if (r.est && unknown.length) return { v: [r.est.kcal, r.est.p, r.est.f, r.est.c].map(Math.round), src: 'ai', unknown: [] };
+  if (!calc[0]) return r.est ? { v: [r.est.kcal, r.est.p, r.est.f, r.est.c].map(Math.round), src: 'ai', unknown: [] } : null;
+  return { v: calc, src: 'calc', unknown };
+}
+function kbjuCard(r) {
+  const n = kbju(r); if (!n) return '';
+  const [kc, p, f, c] = n.v;
+  const tile = (v, l, u) => `<div class="kb"><b>${v}</b><span>${l}${u ? ', ' + u : ''}</span></div>`;
+  const miss = n.unknown.length ? ' ' + t('Без учёта: ', 'Not counted: ') + n.unknown.map(ingName).join(', ').toLowerCase() + '.' : '';
+  return `<div class="kbju" data-s><div class="kbh"><span class="mono">${t('КБЖУ на порцию', 'Per portion')}</span><span class="meta">${r.serves ? servesW(r.serves) : ''}</span></div><div class="kbrow">${tile(kc, t('ккал', 'kcal'))}${tile(p, t('белки', 'protein'), t('г', 'g'))}${tile(f, t('жиры', 'fat'), t('г', 'g'))}${tile(c, t('углеводы', 'carbs'), t('г', 'g'))}</div><span class="note">${n.src === 'ai' ? t('Оценка Котелка по рецепту — примерно.', 'Kotelok’s estimate for this recipe, approximate.') : t('Примерно, по продуктам и количествам рецепта.', 'Approximate, from the recipe’s ingredients and amounts.')}${miss}</span></div>`;
 }
 
 /* ---------- продукты голосом и прямо в чате ---------- */
@@ -2028,6 +2121,7 @@ VIEWS.recipe = () => {
   RT.aiLoad = RT.aiLoad || {};
   if (r && r.gen && !r.steps.length && !RT.aiLoad[r.id]) loadAIRecipe(r.id);
   const v = _recipeView();
+  if (r && v.body) { const kc = kbjuCard(r); if (kc) v.body = v.body.includes('<ol class="steps"') ? v.body.replace('<ol class="steps"', kc + '<ol class="steps"') : v.body + kc; }
   if (!r || !r.gen) return v;
   const st = RT.aiLoad[r.id];
   const note = `<p class="note" data-s>${t('Рецепт придумал Котелок. Проверяй время и степень готовности, особенно у мяса и рыбы.', 'Kotelok wrote this recipe. Check cooking times and doneness, especially for meat and fish.')}</p>`;
